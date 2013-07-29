@@ -41,6 +41,8 @@ static int static_failed_tests = 0;
 int main(void) {
   const char *msg = "";
 
+#if 0
+#endif
   ASSERT(slre_match("fo", "foo", 3, NULL, &msg) == 2);
   ASSERT(slre_match(".+", "foo", 3, NULL, &msg) == 3);
 
@@ -73,8 +75,10 @@ int main(void) {
 
   ASSERT(slre_match("klz?mn", "fooklmn", 7, NULL, &msg) == 7);
   ASSERT(slre_match("fa?b", "fooklmn", 7, NULL, &msg) == 0);
-#if 0
-#endif
+
+  ASSERT(slre_match("^(te)", "tenacity subdues all", 20, NULL, &msg) == 2);
+  ASSERT(slre_match("(bc)", "abcdef", 6, NULL, &msg) == 3);
+  ASSERT(slre_match(".(d.)", "abcdef", 6, NULL, &msg) == 5);
 
   printf("Unit test %s (total test: %d, failed tests: %d)\n",
          static_failed_tests > 0 ? "FAILED" : "PASSED",

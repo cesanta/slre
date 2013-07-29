@@ -82,15 +82,17 @@ static int is_quantifier(const char *re) {
   return re[0] == '*' || re[0] == '+' || re[0] == '?';
 }
 
-static int get_brackets_length(const char *p, const struct regex_info *info) {
+static int get_brackets_index(const char *p, const struct regex_info *info) {
   int i;
-  for (i = 0; i < info->num_bracket_pairs; i++) {
-    if (info->brackets[i].opening_bracket == p) {
-      return info->brackets[i].closing_bracket -
-        info->brackets[i].opening_bracket;
-    }
-  }
+  for (i = 0; i < info->num_bracket_pairs; i++)
+    if (info->brackets[i].opening_bracket == p)
+      return i;
   return 0;
+}
+
+static int get_brackets_length(const char *p, const struct regex_info *info) {
+  int i = get_brackets_index(p, info);
+  return info->brackets[i].closing_bracket - info->brackets[i].opening_bracket;
 }
 
 static int m1(const char *re, int re_len, const char *s, int s_len,
@@ -170,6 +172,22 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
         }
         break;
 
+      case '(':
+        {
+          int n = m1(re + i + 1, step - 1, s + j, s_len - j, caps, info);
+          DBG(("CAPTURING [%.*s] [%.*s] => %d\n", step - 1, re + i + 1,
+               s_len - j, s + j, n));
+          FAIL_IF(n <= 0, static_error_no_match);
+          if (caps != NULL) {
+            int bi = get_brackets_index(re + i, info);
+            caps[bi].ptr = s + j;
+            caps[bi].len = n;
+          }
+          j += n;
+          i++;
+        }
+        break;
+
       case '^':
         FAIL_IF(j != 0, static_error_no_match);
         break;
@@ -208,8 +226,8 @@ static int m(const char *re, int re_len, const char *s, int s_len,
 
   stack[0] = re;
 
-  info->brackets[0].opening_bracket = re;
-  info->brackets[0].closing_bracket = re + re_len;
+  info->brackets[0].opening_bracket = re - 1;  /* Imaginary ( before re */
+  info->brackets[0].closing_bracket = re + re_len;  /* Imaginary ) after re */
   info->brackets[0].nesting_depth = 0;
   info->num_bracket_pairs = 1;
 
@@ -232,7 +250,7 @@ static int m(const char *re, int re_len, const char *s, int s_len,
       info->brackets[info->num_bracket_pairs].nesting_depth = depth;
       info->num_bracket_pairs++;
     } else if (re[i] == ')') {
-      info->brackets[info->num_bracket_pairs].closing_bracket = &re[i];
+      info->brackets[info->num_bracket_pairs - 1].closing_bracket = &re[i];
       depth--;
       FAIL_IF(depth < 0, static_error_unbalanced_brackets);
     }
@@ -263,7 +281,7 @@ int slre_match(const char *regexp, const char *s, int s_len,
   memset(&info, 0, sizeof(info));
   info.error_msg = static_error_no_match;
 
-  DBG(("---------------- [%s] [%.*s]\n", regexp, s_len, s));
+  DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
   result = m(regexp, strlen(regexp), s, s_len, caps, &info);
 
   if (error_msg != NULL) {
