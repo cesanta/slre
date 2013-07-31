@@ -74,8 +74,7 @@ struct regex_info {
 };
 
 static int get_op_len(const char *re) {
-  return re[0] == '\\' ? 2 :
-    (re[0] == '*' || re[0] == '+') && re[1] == '?' ? 2 : 1;
+  return re[0] == '\\' ? 2 : 1;
 }
 
 static int is_quantifier(const char *re) {
@@ -123,11 +122,15 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
         j += m1(re + i, step, s + j, s_len - j, caps, info);
         i++;
         continue;
-      } else if (re[i + step] == '+') {
-        int j2 = j, nj = 0, n1, n2, ni, next_step;
+      } else if (re[i + step] == '+' || re[i + step] == '*') {
+        int j2 = j, nj = 0, n1, n2, ni, next_step, non_greedy = 0;
 
         /* Points to the regexp code after the quantifier */
         next_step = get_op_len(re + i + step);
+        if (i + step + 1 < re_len && re[i + step + 1] == '?') {
+          non_greedy = 1;
+          next_step++;
+        }
         ni = i + step + next_step;
 
         while ((n1 = m1(re + i, step, s + j2, s_len - j2, caps, info)) > 0) {
@@ -138,9 +141,10 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
                               s_len - (j2 + n1), caps, info)) > 0) {
             nj = j2 + n1 + n2;
           }
+          if (nj > 0 && non_greedy) break;
           j2 += n1;
         }
-        FAIL_IF(nj == 0, static_error_no_match);
+        FAIL_IF(re[i + step] == '+' && nj == 0, static_error_no_match);
         return nj;
       }
     }

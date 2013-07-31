@@ -68,6 +68,7 @@ int main(void) {
   ASSERT(slre_match("()+", "fooklmn", 7, NULL, &msg) == 0);
   ASSERT(strcmp(msg, static_error_no_match) == 0);
 
+  /* Balancing brackets */
   ASSERT(slre_match("(x))", "fooklmn", 7, NULL, &msg) == 0);
   ASSERT(strcmp(msg, static_error_unbalanced_brackets) == 0);
   ASSERT(slre_match("(", "fooklmn", 7, NULL, &msg) == 0);
@@ -76,9 +77,18 @@ int main(void) {
   ASSERT(slre_match("klz?mn", "fooklmn", 7, NULL, &msg) == 7);
   ASSERT(slre_match("fa?b", "fooklmn", 7, NULL, &msg) == 0);
 
+  /* Brackets & capturing */
   ASSERT(slre_match("^(te)", "tenacity subdues all", 20, NULL, &msg) == 2);
   ASSERT(slre_match("(bc)", "abcdef", 6, NULL, &msg) == 3);
   ASSERT(slre_match(".(d.)", "abcdef", 6, NULL, &msg) == 5);
+  ASSERT(slre_match(".(d.)\\)?", "abcdef", 6, NULL, &msg) == 5);
+
+  /* Greedy vs non-greedy */
+  ASSERT(slre_match(".+c", "abcabc", 6, NULL, &msg) == 6);
+  ASSERT(slre_match(".+?c", "abcabc", 6, NULL, &msg) == 3);
+  ASSERT(slre_match(".*?c", "abcabc", 6, NULL, &msg) == 3);
+  ASSERT(slre_match(".*c", "abcabc", 6, NULL, &msg) == 6);
+  ASSERT(slre_match("bc.d?k?b+", "abcabc", 6, NULL, &msg) == 5);
 
   printf("Unit test %s (total test: %d, failed tests: %d)\n",
          static_failed_tests > 0 ? "FAILED" : "PASSED",
