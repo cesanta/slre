@@ -463,6 +463,6 @@ int main(void) {
          static_failed_tests > 0 ? "FAILED" : "PASSED",
          static_total_tests, static_failed_tests);
 
-  return EXIT_SUCCESS;
+  return static_failed_tests == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 #endif /* SLRE_UNIT_TEST */
