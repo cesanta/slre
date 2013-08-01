@@ -157,7 +157,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
             break;
 
           case '+': case '?': case '*': case '\\': case '(': case ')':
-          case '^': case '$':
+          case '^': case '$': case '.': case '[': case ']':
             FAIL_IF(re[i + 1] != s[j], static_error_no_match);
             j++;
             break;
@@ -169,19 +169,20 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
         break;
 
       case '(':
-        FAIL_IF(bi + 1 >= info->num_brackets, static_error_internal);
-        DBG(("CAPTURING [%.*s] [%.*s]\n", info->brackets[bi + 1].len + 2,
+        bi++;
+        FAIL_IF(bi >= info->num_brackets, static_error_internal);
+        DBG(("CAPTURING [%.*s] [%.*s]\n", info->brackets[bi].len + 2,
              re + i, s_len - j, s + j));
-        n = doh(s + j, s_len - j, caps, info, bi + 1);
-        DBG(("CAPTURED [%.*s] [%.*s]:%d\n", info->brackets[bi + 1].len + 2,
+        n = doh(s + j, s_len - j, caps, info, bi);
+        DBG(("CAPTURED [%.*s] [%.*s]:%d\n", info->brackets[bi].len + 2,
              re + i, s_len - j, s + j, n));
         FAIL_IF(n <= 0, static_error_no_match);
         if (caps != NULL) {
-          caps[bi].ptr = s + j;
-          caps[bi].len = n;
+          caps[bi - 1].ptr = s + j;
+          caps[bi - 1].len = n;
         }
         j += n;
-        i += info->brackets[bi + 1].len + 1;
+        i += info->brackets[bi].len + 1;
         break;
 
       case '^':

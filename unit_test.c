@@ -94,6 +94,7 @@ int main(void) {
   ASSERT(memcmp(caps[0].ptr, "12", 2) == 0);
   ASSERT(slre_match("(.*(2.))", "123", 3, caps, &msg) == 3);
   ASSERT(slre_match("(.)(.)", "123", 3, caps, &msg) == 2);
+  ASSERT(slre_match("(\\d+)\\s+(\\S+)", "12 hi", 5, caps, &msg) == 5);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, &msg) == 6);
@@ -113,18 +114,31 @@ int main(void) {
   ASSERT(memcmp(caps[0].ptr, "bc", 2) == 0);
 
 
-  ASSERT(slre_match("(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)", "POST /x HTTP/1.1", 16,
-                    caps, &msg) == 16);
-#if 0
   /* HTTP request */
+  ASSERT(slre_match("(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)",
+                    "POST /x HTTP/1.1", 16, caps, &msg) == 14);
+
   {
     static const char *req = "POST /x HTTP/1.0\r\n\r\nPOST DATA";
     int len = strlen(req);
     ASSERT(slre_match("((\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)\r\n\r\n(.*))",
                       req, len, caps, &msg) == len);
   }
-#endif
 
+  /* Examples */
+  {
+    const char *error_msg, *request = " GET /index.html HTTP/1.0\r\n\r\n";
+    struct slre_cap caps[4];
+
+    if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
+                   request, strlen(request), caps, &error_msg)) {
+      printf("Method: [%.*s], URI: [%.*s]\n",
+             caps[0].len, caps[0].ptr,
+             caps[1].len, caps[1].ptr);
+    } else {
+      printf("Error parsing [%s]: [%s]\n", request, error_msg);
+    }
+  }
 
   printf("Unit test %s (total test: %d, failed tests: %d)\n",
          static_failed_tests > 0 ? "FAILED" : "PASSED",

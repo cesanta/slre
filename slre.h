@@ -26,7 +26,7 @@ extern "C" {
 
 /*
  * This is a regular expression library that implements a subset of Perl RE.
- * Please refer to http://cesanta.com/docs/slre for detailed reference.
+ * Please refer to https://github.com/cesanta/slre for detailed reference.
  */
 
 /* This structure describes a matched fragment, a "capture" */
@@ -48,43 +48,6 @@ struct slre_cap {
  */
 int slre_match(const char *regexp, const char *buf, int buf_len,
                struct slre_cap *caps, const char **error_msg);
-
-/*
- * Supported syntax:
- *    ^        Match beginning of a buffer
- *    $        Match end of a buffer
- *    ()       Grouping and substring capturing
- *    [...]    Match any character from set
- *    [^...]   Match any character but ones from set
- *    \s       Match whitespace
- *    \S       Match non-whitespace
- *    \d       Match decimal digit
- *    \r       Match carriage return
- *    \n       Match newline
- *    +        Match one or more times (greedy)
- *    +?       Match one or more times (non-greedy)
- *    *        Match zero or more times (greedy)
- *    *?       Match zero or more times (non-greedy)
- *    ?        Match zero or once
- *    \xDD     Match byte with hex value 0xDD
- *    \meta    Match one of the meta character: ^$().[*+\?
- *    x|y      Match x or y (alternation operator)
-
- * Usage example: parsing HTTP request line.
- *
- *  const char *request = "GET /index.html HTTP/1.0\r\n\r\n";
- *  struct slre_capture method, uri, version_min, version_maj;
- *
- *  error = slre_match("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
- *                     request, strlen(request),
- *                     &method, &uri, &version_min, &version_maj);
- *
- *  if (error != NULL) {
- *    printf("Error parsing HTTP request: %s\n", error);
- *  } else {
- *    printf("Requested URI: [%.*s]\n", uri.len, uri.ptr);
- *  }
- */
 
 #ifdef __cplusplus
 }
