@@ -18,8 +18,6 @@ so with SLRE.
     ^        Match beginning of a buffer
     $        Match end of a buffer
     ()       Grouping and substring capturing
-    [...]    Match any character from set
-    [^...]   Match any character but ones from set
     \s       Match whitespace
     \S       Match non-whitespace
     \d       Match decimal digit
@@ -28,9 +26,14 @@ so with SLRE.
     *        Match zero or more times (greedy)
     *?       Match zero or more times (non-greedy)
     ?        Match zero or once
-    \xDD     Match byte with hex value 0xDD
-    \meta    Match one of the meta character: ^$().[*+\?
     x|y      Match x or y (alternation operator)
+    \meta    Match one of the meta character: ^$().[]*+?|\
+
+Not supported but in progress:
+
+    [...]    Match any character from set
+    [^...]   Match any character but ones from set
+    \xDD     Match byte with hex value 0xDD
 
 ## API
 
@@ -62,6 +65,9 @@ which should be an array of following structures:
 
     if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
                    request, strlen(request), caps, &error_msg)) {
+      printf("Method: [%.*s], URI: [%.*s]\n",
+             caps[0].len, caps[0].ptr,
+             caps[1].len, caps[1].ptr);
     } else {
       printf("Error parsing [%s]: [%s]\n", request, error_msg);
     }
