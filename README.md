@@ -6,7 +6,7 @@ expression syntax. Main features of SLRE are:
 
    * Written in strict ISO C, conforming to ANSI C'89
    * Small size (compiled x86 code is about 4kB)
-   * Uses no dynamic memory allocation and small stack space
+   * Uses little stack and does no dynamic memory allocation
    * [Simple API](https://github.com/cesanta/slre/blob/master/slre.h)
    * Implements most useful subset of Perl regex syntax (see below)
    * Easily extensible. For example, if one wants to introduce a new
