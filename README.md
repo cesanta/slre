@@ -7,9 +7,12 @@ expression syntax. Main features of SLRE are:
    * Written in strict ISO C, conforming to ANSI C'89
    * Small size (compiled x86 code is about 4kB)
    * Uses little stack and does no dynamic memory allocation
-   * [Simple API](https://github.com/cesanta/slre/blob/master/slre.h)
+   * Provides [intuitive simple
+API](https://github.com/cesanta/slre/blob/master/slre.h)
    * Implements most useful subset of Perl regex syntax (see below)
-   * Easily extensible. For example, if one wants to introduce a new
+   * Production quality, extensively
+[unit-tested](https://github.com/cesanta/slre/blob/master/slre.c#L377)
+   * Easily extensible. E.g. if one wants to introduce a new
 metacharacter `\i`, meaning "IPv4 address", it is easy to do so with SLRE.
 
 SLRE is perfect for tasks like parsing network requests, configuration
@@ -33,9 +36,9 @@ most.
     x|y      Match x or y (alternation operator)
     \meta    Match one of the meta character: ^$().[]*+?|\
 
-Not supported but in progress:
+Not yet supported but in progress:
 
-    [...]    Match any character from set
+    [...]    Match any character from set. A-Z like ranges supported
     [^...]   Match any character but ones from set
     \xDD     Match byte with hex value 0xDD
 
