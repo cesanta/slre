@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004-2013 Sergey Lyubka <valenok@gmail.com>
- * Copyright (c) 2013 Cesanta Limited
+ * Copyright (c) 2013 Cesanta Software Limited
  * All rights reserved
  *
  * This library is dual-licensed: you can redistribute it and/or modify
@@ -19,6 +19,10 @@
 
 #ifndef SLRE_HEADER_DEFINED
 #define SLRE_HEADER_DEFINED
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * This is a regular expression library that implements a subset of Perl RE.
@@ -82,4 +86,8 @@ int slre_match(const char *regexp, const char *buf, int buf_len,
  *  }
  */
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif  /* SLRE_HEADER_DEFINED */

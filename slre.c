@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004-2013 Sergey Lyubka <valenok@gmail.com>
- * Copyright (c) 2013 Cesanta Limited
+ * Copyright (c) 2013 Cesanta Software Limited
  * All rights reserved
  *
  * This library is dual-licensed: you can redistribute it and/or modify
@@ -32,7 +32,6 @@ static const char *static_error_invalid_metacharacter = "Invalid metacharacter";
 
 #define MAX_BRANCHES 100
 #define MAX_BRACKETS 100
-#define MAX_QUANTIFIERS 100
 #define ARRAY_SIZE(ar) (int) (sizeof(ar) / sizeof((ar)[0]))
 #define FAIL_IF(cond,msg) do { if (cond) \
   {info->error_msg = msg; return 0; }} while (0)
@@ -49,19 +48,20 @@ struct regex_info {
    * First entry is always present, and grabs the whole regex.
    */
   struct bracket_pair {
-    const char *opening_bracket;
-    const char *closing_bracket;
-    int nesting_depth;
+    const char *ptr;  /* Points to the first char after '(' in regex  */
+    int len;          /* Length of the text between '(' and ')'       */
+    int branches;     /* Index in the branches array for this pair    */
+    int num_branches; /* Number of '|' in this bracket pair           */
   } brackets[MAX_BRACKETS];
-  int num_bracket_pairs;
+  int num_brackets;
 
   /*
    * Describes alternations ('|' operators) in the regular expression.
    * Each branch falls into a specific branch pair.
    */
   struct branch {
-    int bracket_pair_index;   /* index into 'brackets' array defined above */
-    const char *schlong;      /* points to the '|' character in the regex */
+    int bracket_index;    /* index into 'brackets' array defined above */
+    const char *schlong;  /* points to the '|' character in the regex */
   } branches[MAX_BRANCHES];
   int num_branches;
 
@@ -81,37 +81,24 @@ static int is_quantifier(const char *re) {
   return re[0] == '*' || re[0] == '+' || re[0] == '?';
 }
 
-static int get_brackets_index(const char *p, const struct regex_info *info) {
-  int i;
-  for (i = 0; i < info->num_bracket_pairs; i++)
-    if (info->brackets[i].opening_bracket == p)
-      return i;
-  return 0;
-}
+static int doh(const char *s, int s_len,
+               struct slre_cap *caps, struct regex_info *info, int bi);
 
-static int get_brackets_length(const char *p, const struct regex_info *info) {
-  int i = get_brackets_index(p, info);
-  return info->brackets[i].closing_bracket - info->brackets[i].opening_bracket;
-}
-
-static int m1(const char *re, int re_len, const char *s, int s_len,
-              struct slre_cap *caps, struct regex_info *info) {
-  /* i is offset in re, j is offset in s */
-  int i, j, step;
+static int bar(const char *re, int re_len, const char *s, int s_len,
+               struct slre_cap *caps, struct regex_info *info, int bi) {
+  /* i is offset in re, j is offset in s, bi is brackets index */
+  int i, j, n, step;
 
   (void) caps;
 
   DBG(("%s [%.*s] [%.*s]\n", __func__, re_len, re, s_len, s));
 
   for (i = j = 0; i < re_len && j < s_len; i += step) {
-    step = re[i] == '(' ?
-      get_brackets_length(re + i, info) : get_op_len(re + i);
+    step = get_op_len(re + i);
 
-#if 1
     DBG(("%s    [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n",
               __func__, re_len - i, re + i,
               s_len - j, s + j, re_len, step, i, j));
-#endif
 
     FAIL_IF(is_quantifier(&re[i]), static_error_unexpected_quantifier);
     FAIL_IF(step <= 0, static_error_internal);
@@ -119,7 +106,7 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
     /* Handle quantifiers. Look ahead. */
     if (i + step < re_len && is_quantifier(re + i + step)) {
       if (re[i + step] == '?') {
-        j += m1(re + i, step, s + j, s_len - j, caps, info);
+        j += bar(re + i, step, s + j, s_len - j, caps, info, bi);
         i++;
         continue;
       } else if (re[i + step] == '+' || re[i + step] == '*') {
@@ -133,12 +120,13 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
         }
         ni = i + step + next_step;
 
-        while ((n1 = m1(re + i, step, s + j2, s_len - j2, caps, info)) > 0) {
+        while ((n1 = bar(re + i, step, s + j2, s_len - j2,
+                        caps, info, bi)) > 0) {
           if (ni >= re_len) {
             /* After quantifier, there is nothing */
             nj = j2 + n1;
-          } else if ((n2 = m1(re + ni, re_len - ni, s + j2 + n1,
-                              s_len - (j2 + n1), caps, info)) > 0) {
+          } else if ((n2 = bar(re + ni, re_len - ni, s + j2 + n1,
+                              s_len - (j2 + n1), caps, info, bi)) > 0) {
             nj = j2 + n1 + n2;
           }
           if (nj > 0 && non_greedy) break;
@@ -158,14 +146,18 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
             j++;
             break;
 
-          case '+':
-          case '?':
-          case '*':
-          case '\\':
-          case '(':
-          case ')':
-          case '^':
-          case '$':
+          case 's':
+            FAIL_IF(!isspace(((unsigned char *) s)[j]), static_error_no_match);
+            j++;
+            break;
+
+          case 'd':
+            FAIL_IF(!isdigit(((unsigned char *) s)[j]), static_error_no_match);
+            j++;
+            break;
+
+          case '+': case '?': case '*': case '\\': case '(': case ')':
+          case '^': case '$':
             FAIL_IF(re[i + 1] != s[j], static_error_no_match);
             j++;
             break;
@@ -177,23 +169,27 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
         break;
 
       case '(':
-        {
-          int n = m1(re + i + 1, step - 1, s + j, s_len - j, caps, info);
-          DBG(("CAPTURING [%.*s] [%.*s] => %d\n", step - 1, re + i + 1,
-               s_len - j, s + j, n));
-          FAIL_IF(n <= 0, static_error_no_match);
-          if (caps != NULL) {
-            int bi = get_brackets_index(re + i, info);
-            caps[bi].ptr = s + j;
-            caps[bi].len = n;
-          }
-          j += n;
-          i++;
+        FAIL_IF(bi + 1 >= info->num_brackets, static_error_internal);
+        DBG(("CAPTURING [%.*s] [%.*s]\n", info->brackets[bi + 1].len + 2,
+             re + i, s_len - j, s + j));
+        n = doh(s + j, s_len - j, caps, info, bi + 1);
+        DBG(("CAPTURED [%.*s] [%.*s]:%d\n", info->brackets[bi + 1].len + 2,
+             re + i, s_len - j, s + j, n));
+        FAIL_IF(n <= 0, static_error_no_match);
+        if (caps != NULL) {
+          caps[bi].ptr = s + j;
+          caps[bi].len = n;
         }
+        j += n;
+        i += info->brackets[bi + 1].len + 1;
         break;
 
       case '^':
         FAIL_IF(j != 0, static_error_no_match);
+        break;
+
+      case '|':
+        FAIL_IF(1, static_error_internal);
         break;
 
       case '$':
@@ -222,51 +218,108 @@ static int m1(const char *re, int re_len, const char *s, int s_len,
   return j;
 }
 
-/* Step 1. Process brackets and branches. */
-static int m(const char *re, int re_len, const char *s, int s_len,
-             struct slre_cap *caps, struct regex_info *info) {
+/* Process branch points */
+static int doh(const char *s, int s_len,
+              struct slre_cap *caps, struct regex_info *info, int bi) {
+  const struct bracket_pair *b = &info->brackets[bi];
+  int i = 0, len, result;
+  const char *p;
+
+  do {
+    p = i == 0 ? b->ptr : info->branches[b->branches + i - 1].schlong + 1;
+    len = b->num_branches == 0 ? b->len :
+      i == b->num_branches ? b->ptr + b->len - p :
+      info->branches[b->branches + i].schlong - p;
+    DBG(("%s %d %d [%.*s]\n", __func__, bi, i, len, p));
+    result = bar(p, len, s, s_len, caps, info, bi);
+  } while (i++ < b->num_branches);  /* At least 1 iteration */
+
+
+  return result;
+}
+
+static void setup_branch_points(struct regex_info *info) {
+  int i, j;
+  struct branch tmp;
+
+  /* First, sort branches. Must be stable, no qsort. Use bubble algo. */
+  for (i = 0; i < info->num_branches; i++) {
+    for (j = i + 1; j < info->num_branches; j++) {
+      if (info->branches[i].bracket_index > info->branches[j].bracket_index) {
+        tmp = info->branches[i];
+        info->branches[i] = info->branches[j];
+        info->branches[j] = tmp;
+      }
+    }
+  }
+
+  /*
+   * For each bracket, set their branch points. This way, for every bracket
+   * (i.e. every chunk of regex) we know all branch points before matching.
+   */
+  for (i = j = 0; i < info->num_brackets; i++) {
+    info->brackets[i].num_branches = 0;
+    info->brackets[i].branches = j;
+    while (j < info->num_branches && info->branches[j].bracket_index == i) {
+      info->brackets[i].num_branches++;
+      j++;
+    }
+  }
+}
+
+static int foo(const char *re, int re_len, const char *s, int s_len,
+               struct slre_cap *caps, struct regex_info *info) {
   int result, i, step, depth = 0;
   const char *stack[ARRAY_SIZE(info->brackets)];
 
   stack[0] = re;
 
-  info->brackets[0].opening_bracket = re - 1;  /* Imaginary ( before re */
-  info->brackets[0].closing_bracket = re + re_len;  /* Imaginary ) after re */
-  info->brackets[0].nesting_depth = 0;
-  info->num_bracket_pairs = 1;
+  /* First bracket captures everything */
+  info->brackets[0].ptr = re;
+  info->brackets[0].len = re_len;
+  info->num_brackets = 1;
 
+  /* Make a single pass over regex string, memorize brackets and branches */
   for (i = 0; i < re_len; i += step) {
     step = get_op_len(&re[i]);
 
     if (re[i] == '|') {
       FAIL_IF(info->num_branches >= ARRAY_SIZE(info->branches),
               "Too many |. Increase MAX_BRANCHES");
-      info->branches[info->num_branches].bracket_pair_index =
-        info->num_bracket_pairs - 1;
+      info->branches[info->num_branches].bracket_index =
+        info->brackets[info->num_brackets - 1].len == -1 ?
+        info->num_brackets - 1 : depth;
       info->branches[info->num_branches].schlong = &re[i];
       info->num_branches++;
     } else if (re[i] == '(') {
-      FAIL_IF(info->num_bracket_pairs >= ARRAY_SIZE(info->brackets),
+      FAIL_IF(info->num_brackets >= ARRAY_SIZE(info->brackets),
               "Too many (. Increase MAX_BRACKETS");
       depth++;  /* Order is important here. Depth increments first. */
       stack[depth] = &re[i];
-      info->brackets[info->num_bracket_pairs].opening_bracket = &re[i];
-      info->brackets[info->num_bracket_pairs].nesting_depth = depth;
-      info->num_bracket_pairs++;
+      info->brackets[info->num_brackets].ptr = re + i + 1;
+      info->brackets[info->num_brackets].len = -1;
+      info->num_brackets++;
     } else if (re[i] == ')') {
-      info->brackets[info->num_bracket_pairs - 1].closing_bracket = &re[i];
+      int ind = info->brackets[info->num_brackets - 1].len == -1 ?
+        info->num_brackets - 1 : depth;
+      info->brackets[ind].len = &re[i] - info->brackets[ind].ptr;
+      DBG(("SETTING BRACKET %d [%.*s]\n",
+           ind, info->brackets[ind].len, info->brackets[ind].ptr));
       depth--;
       FAIL_IF(depth < 0, static_error_unbalanced_brackets);
+      FAIL_IF(i > 0 && re[i - 1] == '(', static_error_no_match);
     }
   }
 
   FAIL_IF(depth != 0, static_error_unbalanced_brackets);
 
+  setup_branch_points(info);
+
   /* Scan the string from left to right, applying the regex. Stop on match. */
   result = 0;
   for (i = 0; i < s_len; i++) {
-    result = m1(re, re_len, s + i, s_len - i, caps, info);
-    DBG(("  m1 -> %d [%.*s] [%.*s] [%s]\n", result, re_len, re,
+    result = doh(s + i, s_len - i, caps, info, 0);
+    DBG(("   (iter) -> %d [%.*s] [%.*s] [%s]\n", result, re_len, re,
          s_len - i, s + i, info->error_msg));
     if (result > 0 || re[0] == '^') {
       result += i;
@@ -282,11 +335,12 @@ int slre_match(const char *regexp, const char *s, int s_len,
   struct regex_info info;
   int result;
 
-  memset(&info, 0, sizeof(info));
+  /* Initialize info structure */
+  info.flags = info.num_brackets = info.num_branches = 0;
   info.error_msg = static_error_no_match;
 
   DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
-  result = m(regexp, strlen(regexp), s, s_len, caps, &info);
+  result = foo(regexp, strlen(regexp), s, s_len, caps, &info);
 
   if (error_msg != NULL) {
     *error_msg = info.error_msg;

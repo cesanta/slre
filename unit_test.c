@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004-2013 Sergey Lyubka <valenok@gmail.com>
- * Copyright (c) 2013 Cesanta Limited
+ * Copyright (c) 2013 Cesanta Software Limited
  * All rights reserved
  *
  * This library is dual-licensed: you can redistribute it and/or modify
@@ -40,6 +40,7 @@ static int static_failed_tests = 0;
 
 int main(void) {
   const char *msg = "";
+  struct slre_cap caps[10];
 
 #if 0
 #endif
@@ -78,10 +79,21 @@ int main(void) {
   ASSERT(slre_match("fa?b", "fooklmn", 7, NULL, &msg) == 0);
 
   /* Brackets & capturing */
-  ASSERT(slre_match("^(te)", "tenacity subdues all", 20, NULL, &msg) == 2);
-  ASSERT(slre_match("(bc)", "abcdef", 6, NULL, &msg) == 3);
-  ASSERT(slre_match(".(d.)", "abcdef", 6, NULL, &msg) == 5);
-  ASSERT(slre_match(".(d.)\\)?", "abcdef", 6, NULL, &msg) == 5);
+  ASSERT(slre_match("^(te)", "tenacity subdues all", 20, caps, &msg) == 2);
+  ASSERT(slre_match("(bc)", "abcdef", 6, caps, &msg) == 3);
+  ASSERT(slre_match(".(d.)", "abcdef", 6, caps, &msg) == 5);
+  ASSERT(slre_match(".(d.)\\)?", "abcdef", 6, caps, &msg) == 5);
+  ASSERT(caps[0].len == 2);
+  ASSERT(memcmp(caps[0].ptr, "de", 2) == 0);
+  ASSERT(slre_match("(.+)", "123", 3, caps, &msg) == 3);
+  ASSERT(slre_match("(2.+)", "123", 3, caps, &msg) == 3);
+  ASSERT(caps[0].len == 2);
+  ASSERT(memcmp(caps[0].ptr, "23", 2) == 0);
+  ASSERT(slre_match("(.+2)", "123", 3, caps, &msg) == 2);
+  ASSERT(caps[0].len == 2);
+  ASSERT(memcmp(caps[0].ptr, "12", 2) == 0);
+  ASSERT(slre_match("(.*(2.))", "123", 3, caps, &msg) == 3);
+  ASSERT(slre_match("(.)(.)", "123", 3, caps, &msg) == 2);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, &msg) == 6);
@@ -89,6 +101,30 @@ int main(void) {
   ASSERT(slre_match(".*?c", "abcabc", 6, NULL, &msg) == 3);
   ASSERT(slre_match(".*c", "abcabc", 6, NULL, &msg) == 6);
   ASSERT(slre_match("bc.d?k?b+", "abcabc", 6, NULL, &msg) == 5);
+
+  /* Branching */
+  ASSERT(slre_match("|", "abc", 3, NULL, &msg) == 0);
+  ASSERT(slre_match("|.", "abc", 3, NULL, &msg) == 1);
+  ASSERT(slre_match("x|y|b", "abc", 3, NULL, &msg) == 2);
+  ASSERT(slre_match("k(xx|yy)|ca", "abcabc", 6, NULL, &msg) == 4);
+  ASSERT(slre_match("k(xx|yy)|ca|bc", "abcabc", 6, NULL, &msg) == 3);
+  ASSERT(slre_match("(|.c)", "abc", 3, caps, &msg) == 3);
+  ASSERT(caps[0].len == 2);
+  ASSERT(memcmp(caps[0].ptr, "bc", 2) == 0);
+
+
+  ASSERT(slre_match("(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)", "POST /x HTTP/1.1", 16,
+                    caps, &msg) == 16);
+#if 0
+  /* HTTP request */
+  {
+    static const char *req = "POST /x HTTP/1.0\r\n\r\nPOST DATA";
+    int len = strlen(req);
+    ASSERT(slre_match("((\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)\r\n\r\n(.*))",
+                      req, len, caps, &msg) == len);
+  }
+#endif
+
 
   printf("Unit test %s (total test: %d, failed tests: %d)\n",
          static_failed_tests > 0 ? "FAILED" : "PASSED",
