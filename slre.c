@@ -74,11 +74,19 @@ struct regex_info {
 enum { IGNORE_CASE = 1 };
 
 static int get_op_len(const char *re) {
-  return re[0] == '\\' ? 2 : 1;
+  return re[0] == '\\' && re[1] == 'x' ? 4 :
+    re[0] == '\\' ? 2 : 1;
 }
 
 static int is_quantifier(const char *re) {
   return re[0] == '*' || re[0] == '+' || re[0] == '?';
+}
+
+static int toi(int x) {
+  return isdigit(x) ? x - '0' : x - 'W';
+}
+static int hextoi(const unsigned char *s) {
+  return (toi(tolower(s[0])) << 4) | toi(tolower(s[1]));
 }
 
 static int doh(const char *s, int s_len,
@@ -153,6 +161,18 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
 
           case 'd':
             FAIL_IF(!isdigit(((unsigned char *) s)[j]), static_error_no_match);
+            j++;
+            break;
+
+          case 'x':
+            /* Match byte, \xHH where HH is hexadecimal byte representaion */
+            {
+              const unsigned char *r = (const unsigned char *) re + i + 2;
+              FAIL_IF(!(isxdigit(r[0]) && isxdigit(r[1])),
+                      static_error_invalid_metacharacter);
+              FAIL_IF(hextoi(r) != * (unsigned char *) (s + j),
+                      static_error_no_match);
+            }
             j++;
             break;
 
@@ -426,6 +446,13 @@ int main(void) {
   ASSERT(strcmp(msg, static_error_unexpected_quantifier) == 0);
   ASSERT(slre_match("()+", "fooklmn", 7, NULL, &msg) == 0);
   ASSERT(strcmp(msg, static_error_no_match) == 0);
+  ASSERT(slre_match("\\x", "12", 2, NULL, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
+  ASSERT(slre_match("\\xhi", "12", 2, NULL, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
+  ASSERT(slre_match("\\x20", "_ J", 3, NULL, &msg) == 2);
+  ASSERT(slre_match("\\x4A", "_ J", 3, NULL, &msg) == 3);
+  ASSERT(slre_match("\\d+", "abc123def", 9, NULL, &msg) == 6);
 
   /* Balancing brackets */
   ASSERT(slre_match("(x))", "fooklmn", 7, NULL, &msg) == 0);

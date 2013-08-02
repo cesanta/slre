@@ -35,12 +35,12 @@ most.
     ?        Match zero or once
     x|y      Match x or y (alternation operator)
     \meta    Match one of the meta character: ^$().[]*+?|\
+    \xHH     Match byte with hex value 0xHH
 
 Not yet supported but in progress:
 
     [...]    Match any character from set. A-Z like ranges supported
     [^...]   Match any character but ones from set
-    \xDD     Match byte with hex value 0xDD
 
 ## API
 
