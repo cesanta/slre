@@ -79,6 +79,7 @@ which should be an array of following structures:
       printf("Error parsing [%s]: [%s]\n", request, error_msg);
     }
 
+<!--
 # Licensing
 
 SLRE is dual licensed. It is available either under the terms of [GNU GPL
@@ -86,3 +87,4 @@ v.2 license](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) for
 free, or under the terms of standard commercial license provided by [Cesanta
 Software](http://cesanta.com). Businesses who whish to use Cesanta's products
 must [license commercial version](http://cesanta.com/products.html).
+-->
