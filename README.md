@@ -10,8 +10,10 @@ expression syntax. Main features of SLRE are:
    * Provides [intuitive simple
 API](https://github.com/cesanta/slre/blob/master/slre.h)
    * Implements most useful subset of Perl regex syntax (see below)
+  <!--
    * Production quality, extensively
 [unit-tested](https://github.com/cesanta/slre/blob/master/slre.c#L377)
+-->
    * Easily extensible. E.g. if one wants to introduce a new
 metacharacter `\i`, meaning "IPv4 address", it is easy to do so with SLRE.
 
