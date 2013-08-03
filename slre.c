@@ -97,22 +97,21 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
   /* i is offset in re, j is offset in s, bi is brackets index */
   int i, j, n, step;
 
-  (void) caps;
-
   DBG(("%s [%.*s] [%.*s]\n", __func__, re_len, re, s_len, s));
 
   for (i = j = 0; i < re_len && j < s_len; i += step) {
-    step = get_op_len(re + i);
 
-    DBG(("%s    [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n",
-              __func__, re_len - i, re + i,
-              s_len - j, s + j, re_len, step, i, j));
+    /* Handle quantifiers. Get the length of the chunk. */
+    step = re[i] == '(' ? info->brackets[bi + 1].len + 2: get_op_len(re + i);
+
+    DBG(("%s    [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n", __func__,
+         re_len - i, re + i, s_len - j, s + j, re_len, step, i, j));
 
     FAIL_IF(is_quantifier(&re[i]), static_error_unexpected_quantifier);
     FAIL_IF(step <= 0, static_error_internal);
 
-    /* Handle quantifiers. Look ahead. */
     if (i + step < re_len && is_quantifier(re + i + step)) {
+      DBG(("QUANTIFIER: [%.*s] %c\n", step, re + i, re[i + step]));
       if (re[i + step] == '?') {
         j += bar(re + i, step, s + j, s_len - j, caps, info, bi);
         i++;
@@ -145,6 +144,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       }
     }
 
+    /* Quantifiers handled. Process the rest. */
     switch (re[i]) {
       case '\\':
         /* Metacharacters */
@@ -191,18 +191,15 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       case '(':
         bi++;
         FAIL_IF(bi >= info->num_brackets, static_error_internal);
-        DBG(("CAPTURING [%.*s] [%.*s]\n", info->brackets[bi].len + 2,
-             re + i, s_len - j, s + j));
+        DBG(("CAPTURING [%.*s] [%.*s]\n", step, re + i, s_len - j, s + j));
         n = doh(s + j, s_len - j, caps, info, bi);
-        DBG(("CAPTURED [%.*s] [%.*s]:%d\n", info->brackets[bi].len + 2,
-             re + i, s_len - j, s + j, n));
-        FAIL_IF(n <= 0, static_error_no_match);
+        DBG(("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n));
+        FAIL_IF(n <= 0, info->error_msg);
         if (caps != NULL) {
           caps[bi - 1].ptr = s + j;
           caps[bi - 1].len = n;
         }
         j += n;
-        i += info->brackets[bi].len + 1;
         break;
 
       case '^':
@@ -223,7 +220,12 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
         break;
 
       default:
-        FAIL_IF(re[i] != s[j], static_error_no_match);
+        if (info->flags & IGNORE_CASE) {
+          FAIL_IF(tolower(((unsigned char *) re)[i]) !=
+                  tolower(((unsigned char *) s)[j]), static_error_no_match);
+        } else {
+          FAIL_IF(re[i] != s[j], static_error_no_match);
+        }
         j++;
         break;
     }
@@ -340,7 +342,7 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
   result = 0;
   for (i = 0; i < s_len; i++) {
     result = doh(s + i, s_len - i, caps, info, 0);
-    DBG(("   (iter) -> %d [%.*s] [%.*s] [%s]\n", result, re_len, re,
+    DBG(("   (iter %d) -> %d [%.*s] [%.*s] [%s]\n", i, result, re_len, re,
          s_len - i, s + i, info->error_msg));
     if (result > 0 || re[0] == '^') {
       result += i;
@@ -361,6 +363,13 @@ int slre_match(const char *regexp, const char *s, int s_len,
   info.error_msg = static_error_no_match;
 
   DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
+
+  /* Handle regexp flags. At the moment, only 'i' is supported */
+  if (memcmp(regexp, "(?i)", 4) == 0) {
+    info.flags |= IGNORE_CASE;
+    regexp += 4;
+  }
+
   result = foo(regexp, strlen(regexp), s, s_len, caps, &info);
 
   if (error_msg != NULL) {
@@ -420,11 +429,15 @@ int main(void) {
   const char *msg = "";
   struct slre_cap caps[10];
 
-#if 0
-#endif
+  /* Flags - case sensitivity */
+  ASSERT(slre_match("FO", "foo", 3, NULL, &msg) == 0);
+  ASSERT(slre_match("(?i)FO", "foo", 3, NULL, &msg) == 2);
+  ASSERT(slre_match("(?m)FO", "foo", 3, NULL, &msg) == 0);
+  ASSERT(slre_match("(?m)x", "foo", 3, NULL, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_unexpected_quantifier) == 0);
+
   ASSERT(slre_match("fo", "foo", 3, NULL, &msg) == 2);
   ASSERT(slre_match(".+", "foo", 3, NULL, &msg) == 3);
-
   ASSERT(slre_match(".+k", "fooklmn", 7, NULL, &msg) == 4);
   ASSERT(slre_match(".+k.", "fooklmn", 7, NULL, &msg) == 5);
   ASSERT(slre_match("p+", "fooklmn", 7, NULL, &msg) == 0);
@@ -480,6 +493,11 @@ int main(void) {
   ASSERT(slre_match("(.*(2.))", "123", 3, caps, &msg) == 3);
   ASSERT(slre_match("(.)(.)", "123", 3, caps, &msg) == 2);
   ASSERT(slre_match("(\\d+)\\s+(\\S+)", "12 hi", 5, caps, &msg) == 5);
+  ASSERT(slre_match("ab(cd)+ef", "abcdcdef", 8, NULL, &msg) == 8);
+  ASSERT(slre_match("ab(cd)*ef", "abcdcdef", 8, NULL, &msg) == 8);
+  ASSERT(slre_match("ab(cd)+?ef", "abcdcdef", 8, NULL, &msg) == 8);
+  ASSERT(slre_match("ab(cd)+?.", "abcdcdef", 8, NULL, &msg) == 5);
+  ASSERT(slre_match("ab(cd)?", "abcdcdef", 8, NULL, &msg) == 4);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, &msg) == 6);

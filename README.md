@@ -21,21 +21,21 @@ heavyweight for the given task. Developers of embedded systems would benefit
 most.
 
 ## Supported Syntax
-
-    ^        Match beginning of a buffer
-    $        Match end of a buffer
-    ()       Grouping and substring capturing
-    \s       Match whitespace
-    \S       Match non-whitespace
-    \d       Match decimal digit
-    +        Match one or more times (greedy)
-    +?       Match one or more times (non-greedy)
-    *        Match zero or more times (greedy)
-    *?       Match zero or more times (non-greedy)
-    ?        Match zero or once
-    x|y      Match x or y (alternation operator)
-    \meta    Match one of the meta character: ^$().[]*+?|\
-    \xHH     Match byte with hex value 0xHH
+   (?i)     Must be at the beginning of the regex. Makes match case-insensitive
+    ^       Match beginning of a buffer
+    $       Match end of a buffer
+    ()      Grouping and substring capturing
+    \s      Match whitespace
+    \S      Match non-whitespace
+    \d      Match decimal digit
+    +       Match one or more times (greedy)
+    +?      Match one or more times (non-greedy)
+    *       Match zero or more times (greedy)
+    *?      Match zero or more times (non-greedy)
+    ?       Match zero or once
+    x|y     Match x or y (alternation operator)
+    \meta   Match one of the meta character: ^$().[]*+?|\
+    \xHH    Match byte with hex value 0xHH
 
 Not yet supported but in progress:
 
