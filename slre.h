@@ -17,6 +17,11 @@
  * license, as set out in <http://cesanta.com/products.html>.
  */
 
+/*
+ * This is a regular expression library that implements a subset of Perl RE.
+ * Please refer to README.md for a detailed reference.
+ */
+
 #ifndef SLRE_HEADER_DEFINED
 #define SLRE_HEADER_DEFINED
 
@@ -24,14 +29,9 @@
 extern "C" {
 #endif
 
-/*
- * This is a regular expression library that implements a subset of Perl RE.
- * Please refer to README.md for detailed reference.
- */
-
 struct slre_cap {
-  const char *ptr;  /* Points to the matched fragment */
-  int len;          /* Length of the matched fragment */
+  const char *ptr;
+  int len;
 };
 
 int slre_match(const char *regexp, const char *buf, int buf_len,

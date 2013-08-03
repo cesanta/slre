@@ -32,15 +32,12 @@ most.
     +?      Match one or more times (non-greedy)
     *       Match zero or more times (greedy)
     *?      Match zero or more times (non-greedy)
-    ?       Match zero or once
+    ?       Match zero or once (greedy)
     x|y     Match x or y (alternation operator)
     \meta   Match one of the meta character: ^$().[]*+?|\
-    \xHH    Match byte with hex value 0xHH
-
-Not yet supported but in progress:
-
-    [...]    Match any character from set. A-Z like ranges supported
-    [^...]   Match any character but ones from set
+    \xHH    Match byte with hex value 0xHH, e.g. \x4a
+    [...]   Match any character from set. Ranges like [a-z] are supported
+    [^...]  Match any character but ones from set
 
 ## API
 
@@ -51,19 +48,21 @@ Not yet supported but in progress:
 `slre_match()` matches string buffer `buf` of length `buf_len` against
 regular expression `regexp`, which should conform the syntax outlined
 above. If regular expression `regexp` contains brackets, `slre_match()`
-will capture the respective substrings. Array of captures, `caps`,
-must have at least as many elements as number of bracket pairs in the `regexp`.
+may capture the respective substrings into the array of `struct slre_cap`
+structures:
 
-`slre_match()` returns 0 if there is no match found. Otherwise, it returns
-the number scanned bytes from the beginning of the string. This way,
-it is easy to do repetitive matches. Hint: if it is required to know
-the exact matched substring, enclose `regexp` in a brackets and specify `caps`,
-which should be an array of following structures:
-
+    /* Stores matched fragment for the expression inside brackets */
     struct slre_cap {
       const char *ptr;  /* Points to the matched fragment */
       int len;          /* Length of the matched fragment */
     };
+
+N-th member of the `caps` array will contain fragment that corresponds
+to the N-th opening bracket in the `regex`.
+
+`slre_match()` returns 0 if there is no match found. Otherwise, it returns
+the number scanned bytes from the beginning of the string. This way,
+it is easy to do repetitive matches.
 
 ## Example: parsing HTTP request
 
