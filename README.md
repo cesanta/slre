@@ -22,7 +22,7 @@ most.
 
 ## Supported Syntax
 
-   (?i)     Must be at the beginning of the regex. Makes match case-insensitive
+    (?i)    Must be at the beginning of the regex. Makes match case-insensitive
     ^       Match beginning of a buffer
     $       Match end of a buffer
     ()      Grouping and substring capturing
