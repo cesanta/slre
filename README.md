@@ -5,7 +5,7 @@ SLRE is an ISO C library that implements a subset of Perl regular
 expression syntax. Main features of SLRE are:
 
    * Written in strict ISO C, conforming to ANSI C'89
-   * Small size (compiled x86 code is about 4kB)
+   * Small size (compiled x86 code is about 5kB)
    * Uses little stack and does no dynamic memory allocation
    * Provides [intuitive simple
 API](https://github.com/cesanta/slre/blob/master/slre.h)
