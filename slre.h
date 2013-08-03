@@ -26,26 +26,14 @@ extern "C" {
 
 /*
  * This is a regular expression library that implements a subset of Perl RE.
- * Please refer to https://github.com/cesanta/slre for detailed reference.
+ * Please refer to README.md for detailed reference.
  */
 
-/* This structure describes a matched fragment, a "capture" */
 struct slre_cap {
   const char *ptr;  /* Points to the matched fragment */
   int len;          /* Length of the matched fragment */
 };
 
-/*
- * Match string buffer "buf" of length "buf_len" against "regexp", which should
- * conform the syntax outlined below. If regular expression
- * "regexp" contains brackets, slre_match() will capture the respective
- * substring. Array of captures, "caps", must have at least as many elements
- * as number of opening parenthesis in the regexp.
- *
- * Return:
- *   0, if there is no match. error_msg will contain the error message
- *   >0, number of bytes matched in a buffer
- */
 int slre_match(const char *regexp, const char *buf, int buf_len,
                struct slre_cap *caps, const char **error_msg);
 
