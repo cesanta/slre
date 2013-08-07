@@ -35,7 +35,7 @@ struct slre_cap {
 };
 
 int slre_match(const char *regexp, const char *buf, int buf_len,
-               struct slre_cap *caps, const char **error_msg);
+               struct slre_cap *caps, int num_caps, const char **error_msg);
 
 #ifdef __cplusplus
 }
