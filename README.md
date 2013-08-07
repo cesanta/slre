@@ -7,8 +7,7 @@ expression syntax. Main features of SLRE are:
    * Written in strict ANSI C'89
    * Small size (compiled x86 code is about 5kB)
    * Uses little stack and does no dynamic memory allocation
-   * Provides [intuitive simple
-API](https://github.com/cesanta/slre/blob/master/slre.h)
+   * Provides simple intuitive API
    * Implements most useful subset of Perl regex syntax (see below)
    * Easily extensible. E.g. if one wants to introduce a new
 metacharacter `\i`, meaning "IPv4 address", it is easy to do so with SLRE.
@@ -41,8 +40,7 @@ most.
 ## API
 
     int slre_match(const char *regexp, const char *buf, int buf_len,
-                   struct slre_cap *caps, const char **error_msg);
-
+                   struct slre_cap *caps, int num_caps, const char **error_msg);
 
 `slre_match()` matches string buffer `buf` of length `buf_len` against
 regular expression `regexp`, which should conform the syntax outlined
@@ -60,8 +58,7 @@ N-th member of the `caps` array will contain fragment that corresponds
 to the N-th opening bracket in the `regex`.
 
 `slre_match()` returns 0 if there is no match found. Otherwise, it returns
-the number scanned bytes from the beginning of the string. This way,
-it is easy to do repetitive matches.
+the number scanned bytes from the beginning of the string.
 
 ## Example: parsing HTTP request line
 
