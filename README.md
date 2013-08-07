@@ -31,7 +31,7 @@ most.
     +?      Match one or more times (non-greedy)
     *       Match zero or more times (greedy)
     *?      Match zero or more times (non-greedy)
-    ?       Match zero or once (greedy)
+    ?       Match zero or once (non-greedy)
     x|y     Match x or y (alternation operator)
     \meta   Match one of the meta character: ^$().[]*+?|\
     \xHH    Match byte with hex value 0xHH, e.g. \x4a
@@ -63,19 +63,40 @@ to the N-th opening bracket in the `regex`.
 the number scanned bytes from the beginning of the string. This way,
 it is easy to do repetitive matches.
 
-## Example: parsing HTTP request
+## Example: parsing HTTP request line
 
     const char *error_msg, *request = " GET /index.html HTTP/1.0\r\n\r\n";
     struct slre_cap caps[4];
 
     if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
-                   request, strlen(request), caps, &error_msg)) {
+                   request, strlen(request), caps, 4, &error_msg)) {
       printf("Method: [%.*s], URI: [%.*s]\n",
              caps[0].len, caps[0].ptr,
              caps[1].len, caps[1].ptr);
     } else {
       printf("Error parsing [%s]: [%s]\n", request, error_msg);
     }
+
+## Example: find all URLs in a string
+
+    static const char *str =
+      "<img src=\"HTTPS://FOO.COM/x?b#c=tab1\"/> "
+      "  <a href=\"http://cesanta.com\">some link</a>";
+
+    static const char *regex = "(?i)((https?://)[^\\s/'\"<>]+/?[^\\s'\"<>]*)";
+    struct slre_cap caps[2];
+    int i, j = 0, str_len = strlen(str);
+
+    while (j < str_len &&
+           (i = slre_match(regex, str + j, str_len - j, caps, 2, NULL)) > 0) {
+      printf("Found URL: [%.*s]\n", caps[0].len, caps[0].ptr);
+      j += i;
+    }
+
+Output:
+
+    Found URL: [HTTPS://FOO.COM/x?b#c=tab1]
+    Found URL: [http://cesanta.com]
 
 <!--
 # Licensing

@@ -30,6 +30,7 @@ static const char *static_error_unbalanced_brackets = "Unbalanced brackets";
 static const char *static_error_internal = "Internal error";
 static const char *static_error_invalid_set = "Invalid [] spec";
 static const char *static_error_invalid_metacharacter = "Invalid metacharacter";
+static const char *static_error_more_caps = "Caps array is too small";
 
 static const char *static_metacharacters = "^$().[]*+?|\\";
 
@@ -67,6 +68,10 @@ struct regex_info {
     const char *schlong;  /* points to the '|' character in the regex */
   } branches[MAX_BRANCHES];
   int num_branches;
+
+  /* Array of captures provided by the user */
+  struct slre_cap *caps;
+  int num_caps;
 
   /* Error message to be returned to the user */
   const char *error_msg;
@@ -184,18 +189,16 @@ static int match_set(const char *re, int re_len, const char *s,
       len += 3;
     } else {
       result = match_op((unsigned char *) re + len, (unsigned char *) s, info);
-      len += op_len(re);
+      len += op_len(re + len);
     }
-    result = (!invert && result) || (invert && !result) ? 1 : 0;
   }
-  return result;
+  return (!invert && result) || (invert && !result) ? 1 : 0;
 }
 
-static int doh(const char *s, int s_len,
-               struct slre_cap *caps, struct regex_info *info, int bi);
+static int doh(const char *s, int s_len, struct regex_info *info, int bi);
 
 static int bar(const char *re, int re_len, const char *s, int s_len,
-               struct slre_cap *caps, struct regex_info *info, int bi) {
+               struct regex_info *info, int bi) {
   /* i is offset in re, j is offset in s, bi is brackets index */
   int i, j, n, step;
 
@@ -216,7 +219,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     if (i + step < re_len && is_quantifier(re + i + step)) {
       DBG(("QUANTIFIER: [%.*s] %c\n", step, re + i, re[i + step]));
       if (re[i + step] == '?') {
-        j += bar(re + i, step, s + j, s_len - j, caps, info, bi);
+        j += bar(re + i, step, s + j, s_len - j, info, bi);
         i++;
         continue;
       } else if (re[i + step] == '+' || re[i + step] == '*') {
@@ -229,13 +232,12 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
           ni++;
         }
 
-        while ((n1 = bar(re + i, step, s + j2, s_len - j2,
-                        caps, info, bi)) > 0) {
+        while ((n1 = bar(re + i, step, s + j2, s_len - j2, info, bi)) > 0) {
           if (ni >= re_len) {
             /* After quantifier, there is nothing */
             nj = j2 + n1;
           } else if ((n2 = bar(re + ni, re_len - ni, s + j2 + n1,
-                              s_len - (j2 + n1), caps, info, bi)) > 0) {
+                              s_len - (j2 + n1), info, bi)) > 0) {
             nj = j2 + n1 + n2;
           }
           if (nj > 0 && non_greedy) break;
@@ -255,12 +257,12 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       bi++;
       FAIL_IF(bi >= info->num_brackets, static_error_internal);
       DBG(("CAPTURING [%.*s] [%.*s]\n", step, re + i, s_len - j, s + j));
-      n = doh(s + j, s_len - j, caps, info, bi);
+      n = doh(s + j, s_len - j, info, bi);
       DBG(("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n));
       FAIL_IF(n <= 0, info->error_msg);
-      if (caps != NULL) {
-        caps[bi - 1].ptr = s + j;
-        caps[bi - 1].len = n;
+      if (info->caps != NULL) {
+        info->caps[bi - 1].ptr = s + j;
+        info->caps[bi - 1].len = n;
       }
       j += n;
     } else if (re[i] == '^') {
@@ -283,8 +285,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
 }
 
 /* Process branch points */
-static int doh(const char *s, int s_len,
-              struct slre_cap *caps, struct regex_info *info, int bi) {
+static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
   const struct bracket_pair *b = &info->brackets[bi];
   int i = 0, len, result;
   const char *p;
@@ -295,7 +296,7 @@ static int doh(const char *s, int s_len,
       i == b->num_branches ? b->ptr + b->len - p :
       info->branches[b->branches + i].schlong - p;
     DBG(("%s %d %d [%.*s]\n", __func__, bi, i, len, p));
-    result = bar(p, len, s, s_len, caps, info, bi);
+    result = bar(p, len, s, s_len, info, bi);
   } while (i++ < b->num_branches);  /* At least 1 iteration */
 
 
@@ -332,7 +333,7 @@ static void setup_branch_points(struct regex_info *info) {
 }
 
 static int foo(const char *re, int re_len, const char *s, int s_len,
-               struct slre_cap *caps, struct regex_info *info) {
+               struct regex_info *info) {
   int result, i, step, depth = 0;
   const char *stack[ARRAY_SIZE(info->brackets)];
 
@@ -363,6 +364,8 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
       info->brackets[info->num_brackets].ptr = re + i + 1;
       info->brackets[info->num_brackets].len = -1;
       info->num_brackets++;
+      FAIL_IF(info->num_caps > 0 && info->num_brackets - 1 > info->num_caps,
+              static_error_more_caps);
     } else if (re[i] == ')') {
       int ind = info->brackets[info->num_brackets - 1].len == -1 ?
         info->num_brackets - 1 : depth;
@@ -382,7 +385,7 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
   /* Scan the string from left to right, applying the regex. Stop on match. */
   result = 0;
   for (i = 0; i < s_len; i++) {
-    result = doh(s + i, s_len - i, caps, info, 0);
+    result = doh(s + i, s_len - i, info, 0);
     DBG(("   (iter %d) -> %d [%.*s] [%.*s] [%s]\n", i, result, re_len, re,
          s_len - i, s + i, info->error_msg));
     if (result > 0 || re[0] == '^') {
@@ -395,13 +398,15 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
 }
 
 int slre_match(const char *regexp, const char *s, int s_len,
-               struct slre_cap *caps, const char **error_msg) {
+               struct slre_cap *caps, int num_caps, const char **error_msg) {
   struct regex_info info;
   int result;
 
   /* Initialize info structure */
   info.flags = info.num_brackets = info.num_branches = 0;
-  info.error_msg = static_error_no_match;
+  info.error_msg = "";
+  info.num_caps = num_caps;
+  info.caps = caps;
 
   DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
 
@@ -411,7 +416,7 @@ int slre_match(const char *regexp, const char *s, int s_len,
     regexp += 4;
   }
 
-  result = foo(regexp, strlen(regexp), s, s_len, caps, &info);
+  result = foo(regexp, strlen(regexp), s, s_len, &info);
 
   if (error_msg != NULL) {
     *error_msg = info.error_msg;
@@ -447,7 +452,7 @@ static char *slre_replace(const char *regex, const char *buf,
 
   do {
     s_len = s == NULL ? 0 : strlen(s);
-    if ((n = slre_match(regex, buf, len, &cap, NULL)) > 0) {
+    if ((n = slre_match(regex, buf, len, &cap, 1, NULL)) > 0) {
       n1 = cap.ptr - buf, n2 = strlen(sub),
          n3 = &buf[n] - &cap.ptr[cap.len];
     } else {
@@ -471,116 +476,120 @@ int main(void) {
   struct slre_cap caps[10];
 
   /* Character sets */
-  ASSERT(slre_match("[abc]", "1c2", 3, NULL, &msg) == 2);
-  ASSERT(slre_match("[abc]", "1C2", 3, NULL, &msg) == 0);
-  ASSERT(slre_match("(?i)[abc]", "1C2", 3, NULL, &msg) == 2);
-  ASSERT(slre_match("[.2]", "1C2", 3, NULL, &msg) == 1);
-  ASSERT(slre_match("[\\S]+", "ab cd", 5, NULL, &msg) == 2);
-  ASSERT(slre_match("[\\S]+\\s+[tyc]*", "ab cd", 5, NULL, &msg) == 4);
-  ASSERT(slre_match("[\\d]", "ab cd", 5, NULL, &msg) == 0);
-  ASSERT(slre_match("[^\\d]", "ab cd", 5, NULL, &msg) == 1);
-  ASSERT(slre_match("[^\\d]+", "abc123", 6, NULL, &msg) == 3);
-  ASSERT(slre_match("[1-5]+", "123456789", 9, NULL, &msg) == 5);
-  ASSERT(slre_match("[1-5a-c]+", "123abcdef", 9, NULL, &msg) == 6);
-  ASSERT(slre_match("[1-5a-]+", "123abcdef", 9, NULL, &msg) == 4);
-  ASSERT(slre_match("[1-5a-]+", "123a--2oo", 9, NULL, &msg) == 7);
-  ASSERT(slre_match("[htps]+://", "https://", 8, NULL, &msg) == 8);
+  ASSERT(slre_match("[abc]", "1c2", 3, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("[abc]", "1C2", 3, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("(?i)[abc]", "1C2", 3, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("[.2]", "1C2", 3, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("[\\S]+", "ab cd", 5, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("[\\S]+\\s+[tyc]*", "ab cd", 5, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("[\\d]", "ab cd", 5, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("[^\\d]", "ab cd", 5, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("[^\\d]+", "abc123", 6, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("[1-5]+", "123456789", 9, NULL, 0, &msg) == 5);
+  ASSERT(slre_match("[1-5a-c]+", "123abcdef", 9, NULL, 0, &msg) == 6);
+  ASSERT(slre_match("[1-5a-]+", "123abcdef", 9, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("[1-5a-]+", "123a--2oo", 9, NULL, 0, &msg) == 7);
+  ASSERT(slre_match("[htps]+://", "https://", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("[^\\s]+", "abc def", 7, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("[^fc]+", "abc def", 7, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("[^d\\sf]+", "abc def", 7, NULL, 0, &msg) == 3);
 
   /* Flags - case sensitivity */
-  ASSERT(slre_match("FO", "foo", 3, NULL, &msg) == 0);
-  ASSERT(slre_match("(?i)FO", "foo", 3, NULL, &msg) == 2);
-  ASSERT(slre_match("(?m)FO", "foo", 3, NULL, &msg) == 0);
-  ASSERT(slre_match("(?m)x", "foo", 3, NULL, &msg) == 0);
+  ASSERT(slre_match("FO", "foo", 3, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("(?i)FO", "foo", 3, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("(?m)FO", "foo", 3, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("(?m)x", "foo", 3, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_unexpected_quantifier) == 0);
 
-  ASSERT(slre_match("fo", "foo", 3, NULL, &msg) == 2);
-  ASSERT(slre_match(".+", "foo", 3, NULL, &msg) == 3);
-  ASSERT(slre_match(".+k", "fooklmn", 7, NULL, &msg) == 4);
-  ASSERT(slre_match(".+k.", "fooklmn", 7, NULL, &msg) == 5);
-  ASSERT(slre_match("p+", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match("ok", "fooklmn", 7, NULL, &msg) == 4);
-  ASSERT(slre_match("lmno", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match("mn.", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match("o", "fooklmn", 7, NULL, &msg) == 2);
-  ASSERT(slre_match("^o", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match("^", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match("n$", "fooklmn", 7, NULL, &msg) == 7);
-  ASSERT(slre_match("n$k", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match("l$", "fooklmn", 7, NULL, &msg) == 0);
-  ASSERT(slre_match(".$", "fooklmn", 7, NULL, &msg) == 7);
-  ASSERT(slre_match("a?", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("fo", "foo", 3, NULL, 0, &msg) == 2);
+  ASSERT(slre_match(".+", "foo", 3, NULL, 0, &msg) == 3);
+  ASSERT(slre_match(".+k", "fooklmn", 7, NULL, 0, &msg) == 4);
+  ASSERT(slre_match(".+k.", "fooklmn", 7, NULL, 0, &msg) == 5);
+  ASSERT(slre_match("p+", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("ok", "fooklmn", 7, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("lmno", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("mn.", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("o", "fooklmn", 7, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("^o", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("^", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("n$", "fooklmn", 7, NULL, 0, &msg) == 7);
+  ASSERT(slre_match("n$k", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("l$", "fooklmn", 7, NULL, 0, &msg) == 0);
+  ASSERT(slre_match(".$", "fooklmn", 7, NULL, 0, &msg) == 7);
+  ASSERT(slre_match("a?", "fooklmn", 7, NULL, 0, &msg) == 0);
 
-  ASSERT(slre_match("\\_", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("\\_", "fooklmn", 7, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
-  ASSERT(slre_match("+", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("+", "fooklmn", 7, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_unexpected_quantifier) == 0);
-  ASSERT(slre_match("()+", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("()+", "fooklmn", 7, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_no_match) == 0);
-  ASSERT(slre_match("\\x", "12", 2, NULL, &msg) == 0);
+  ASSERT(slre_match("\\x", "12", 2, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
-  ASSERT(slre_match("\\xhi", "12", 2, NULL, &msg) == 0);
+  ASSERT(slre_match("\\xhi", "12", 2, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
-  ASSERT(slre_match("\\x20", "_ J", 3, NULL, &msg) == 2);
-  ASSERT(slre_match("\\x4A", "_ J", 3, NULL, &msg) == 3);
-  ASSERT(slre_match("\\d+", "abc123def", 9, NULL, &msg) == 6);
+  ASSERT(slre_match("\\x20", "_ J", 3, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("\\x4A", "_ J", 3, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("\\d+", "abc123def", 9, NULL, 0, &msg) == 6);
 
   /* Balancing brackets */
-  ASSERT(slre_match("(x))", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("(x))", "fooklmn", 7, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_unbalanced_brackets) == 0);
-  ASSERT(slre_match("(", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("(", "fooklmn", 7, NULL, 0, &msg) == 0);
   ASSERT(strcmp(msg, static_error_unbalanced_brackets) == 0);
 
-  ASSERT(slre_match("klz?mn", "fooklmn", 7, NULL, &msg) == 7);
-  ASSERT(slre_match("fa?b", "fooklmn", 7, NULL, &msg) == 0);
+  ASSERT(slre_match("klz?mn", "fooklmn", 7, NULL, 0, &msg) == 7);
+  ASSERT(slre_match("fa?b", "fooklmn", 7, NULL, 0, &msg) == 0);
 
   /* Brackets & capturing */
-  ASSERT(slre_match("^(te)", "tenacity subdues all", 20, caps, &msg) == 2);
-  ASSERT(slre_match("(bc)", "abcdef", 6, caps, &msg) == 3);
-  ASSERT(slre_match(".(d.)", "abcdef", 6, caps, &msg) == 5);
-  ASSERT(slre_match(".(d.)\\)?", "abcdef", 6, caps, &msg) == 5);
+  ASSERT(slre_match("^(te)", "tenacity subdues all", 20, caps, 10, &msg) == 2);
+  ASSERT(slre_match("(bc)", "abcdef", 6, caps, 10, &msg) == 3);
+  ASSERT(slre_match(".(d.)", "abcdef", 6, caps, 10, &msg) == 5);
+  ASSERT(slre_match(".(d.)\\)?", "abcdef", 6, caps, 10, &msg) == 5);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "de", 2) == 0);
-  ASSERT(slre_match("(.+)", "123", 3, caps, &msg) == 3);
-  ASSERT(slre_match("(2.+)", "123", 3, caps, &msg) == 3);
+  ASSERT(slre_match("(.+)", "123", 3, caps, 10, &msg) == 3);
+  ASSERT(slre_match("(2.+)", "123", 3, caps, 10, &msg) == 3);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "23", 2) == 0);
-  ASSERT(slre_match("(.+2)", "123", 3, caps, &msg) == 2);
+  ASSERT(slre_match("(.+2)", "123", 3, caps, 10, &msg) == 2);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "12", 2) == 0);
-  ASSERT(slre_match("(.*(2.))", "123", 3, caps, &msg) == 3);
-  ASSERT(slre_match("(.)(.)", "123", 3, caps, &msg) == 2);
-  ASSERT(slre_match("(\\d+)\\s+(\\S+)", "12 hi", 5, caps, &msg) == 5);
-  ASSERT(slre_match("ab(cd)+ef", "abcdcdef", 8, NULL, &msg) == 8);
-  ASSERT(slre_match("ab(cd)*ef", "abcdcdef", 8, NULL, &msg) == 8);
-  ASSERT(slre_match("ab(cd)+?ef", "abcdcdef", 8, NULL, &msg) == 8);
-  ASSERT(slre_match("ab(cd)+?.", "abcdcdef", 8, NULL, &msg) == 5);
-  ASSERT(slre_match("ab(cd)?", "abcdcdef", 8, NULL, &msg) == 4);
+  ASSERT(slre_match("(.*(2.))", "123", 3, caps, 10, &msg) == 3);
+  ASSERT(slre_match("(.)(.)", "123", 3, caps, 10, &msg) == 2);
+  ASSERT(slre_match("(\\d+)\\s+(\\S+)", "12 hi", 5, caps, 10, &msg) == 5);
+  ASSERT(slre_match("ab(cd)+ef", "abcdcdef", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("ab(cd)*ef", "abcdcdef", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("ab(cd)+?ef", "abcdcdef", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("ab(cd)+?.", "abcdcdef", 8, NULL, 0, &msg) == 5);
+  ASSERT(slre_match("ab(cd)?", "abcdcdef", 8, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("a(b)(cd)", "abcdcdef", 8, caps, 1, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_more_caps) == 0);
 
   /* Greedy vs non-greedy */
-  ASSERT(slre_match(".+c", "abcabc", 6, NULL, &msg) == 6);
-  ASSERT(slre_match(".+?c", "abcabc", 6, NULL, &msg) == 3);
-  ASSERT(slre_match(".*?c", "abcabc", 6, NULL, &msg) == 3);
-  ASSERT(slre_match(".*c", "abcabc", 6, NULL, &msg) == 6);
-  ASSERT(slre_match("bc.d?k?b+", "abcabc", 6, NULL, &msg) == 5);
+  ASSERT(slre_match(".+c", "abcabc", 6, NULL, 0, &msg) == 6);
+  ASSERT(slre_match(".+?c", "abcabc", 6, NULL, 0, &msg) == 3);
+  ASSERT(slre_match(".*?c", "abcabc", 6, NULL, 0, &msg) == 3);
+  ASSERT(slre_match(".*c", "abcabc", 6, NULL, 0, &msg) == 6);
+  ASSERT(slre_match("bc.d?k?b+", "abcabc", 6, NULL, 0, &msg) == 5);
 
   /* Branching */
-  ASSERT(slre_match("|", "abc", 3, NULL, &msg) == 0);
-  ASSERT(slre_match("|.", "abc", 3, NULL, &msg) == 1);
-  ASSERT(slre_match("x|y|b", "abc", 3, NULL, &msg) == 2);
-  ASSERT(slre_match("k(xx|yy)|ca", "abcabc", 6, NULL, &msg) == 4);
-  ASSERT(slre_match("k(xx|yy)|ca|bc", "abcabc", 6, NULL, &msg) == 3);
-  ASSERT(slre_match("(|.c)", "abc", 3, caps, &msg) == 3);
+  ASSERT(slre_match("|", "abc", 3, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("|.", "abc", 3, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("x|y|b", "abc", 3, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("k(xx|yy)|ca", "abcabc", 6, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("k(xx|yy)|ca|bc", "abcabc", 6, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("(|.c)", "abc", 3, caps, 10, &msg) == 3);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "bc", 2) == 0);
 
-
-  /* Example: HTTP request */
   {
+    /* Example: HTTP request */
     const char *error_msg, *request = " GET /index.html HTTP/1.0\r\n\r\n";
     struct slre_cap caps[4];
 
     if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
-                   request, strlen(request), caps, &error_msg)) {
+                   request, strlen(request), caps, 4, &error_msg)) {
       printf("Method: [%.*s], URI: [%.*s]\n",
              caps[0].len, caps[0].ptr,
              caps[1].len, caps[1].ptr);
@@ -593,12 +602,30 @@ int main(void) {
   }
 
   {
+    /* Example: string replacement */
     char *s = slre_replace("({{.+?}})",
                            "Good morning, {{foo}}. How are you, {{bar}}?",
                            "Bob");
     printf("%s\n", s);
     ASSERT(strcmp(s, "Good morning, Bob. How are you, Bob?") == 0);
     free(s);
+  }
+
+  {
+    /* Example: find all URLs in a string */
+    static const char *str =
+      "<img src=\"HTTPS://FOO.COM/x?b#c=tab1\"/> "
+      "  <a href=\"http://cesanta.com\">some link</a>";
+
+    static const char *regex = "(?i)((https?://)[^\\s/'\"<>]+/?[^\\s'\"<>]*)";
+    struct slre_cap caps[2];
+    int i, j = 0, str_len = strlen(str);
+
+    while (j < str_len &&
+           (i = slre_match(regex, str + j, str_len - j, caps, 2, NULL)) > 0) {
+      printf("Found URL: [%.*s]\n", caps[0].len, caps[0].ptr);
+      j += i;
+    }
   }
 
   printf("Unit test %s (total test: %d, failed tests: %d)\n",
