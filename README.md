@@ -4,7 +4,7 @@ SLRE: Super Light Regular Expression library
 SLRE is an ISO C library that implements a subset of Perl regular
 expression syntax. Main features of SLRE are:
 
-   * Written in strict ISO C, conforming to ANSI C'89
+   * Written in strict ANSI C'89
    * Small size (compiled x86 code is about 5kB)
    * Uses little stack and does no dynamic memory allocation
    * Provides [intuitive simple
