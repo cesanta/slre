@@ -37,6 +37,8 @@ most.
     [...]   Match any character from set. Ranges like [a-z] are supported
     [^...]  Match any character but ones from set
 
+Under development: Unicode support.
+
 ## API
 
     int slre_match(const char *regexp, const char *buf, int buf_len,
@@ -95,7 +97,6 @@ Output:
     Found URL: [HTTPS://FOO.COM/x?b#c=tab1]
     Found URL: [http://cesanta.com]
 
-<!--
 # Licensing
 
 SLRE is dual licensed. It is available either under the terms of [GNU GPL
@@ -103,4 +104,3 @@ v.2 license](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) for
 free, or under the terms of standard commercial license provided by [Cesanta
 Software](http://cesanta.com). Businesses who whish to use Cesanta's products
 must [license commercial version](http://cesanta.com/products.html).
--->
