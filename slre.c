@@ -565,6 +565,8 @@ int main(void) {
   ASSERT(slre_match("ab(cd)?", "abcdcdef", 8, NULL, 0, &msg) == 4);
   ASSERT(slre_match("a(b)(cd)", "abcdcdef", 8, caps, 1, &msg) == 0);
   ASSERT(strcmp(msg, static_error_more_caps) == 0);
+  ASSERT(slre_match("(.+/\\d+\\.\\d+)\\.jpg$", "/foo/bar/12.34.jpg", 18,
+                    caps, 1, &msg) == 18);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, 0, &msg) == 6);
