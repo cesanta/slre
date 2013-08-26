@@ -46,27 +46,31 @@ static const char *static_metacharacters = "^$().[]*+?|\\";
 #define DBG(x)
 #endif
 
+struct bracket_pair {
+  const char *ptr;  /* Points to the first char after '(' in regex  */
+  int len;          /* Length of the text between '(' and ')'       */
+  int branches;     /* Index in the branches array for this pair    */
+  int num_branches; /* Number of '|' in this bracket pair           */
+};
+
+struct branch {
+  int bracket_index;    /* index into 'brackets' array defined above */
+  const char *schlong;  /* points to the '|' character in the regex */
+};
+
 struct regex_info {
   /*
    * Describes all bracket pairs in the regular expression.
    * First entry is always present, and grabs the whole regex.
    */
-  struct bracket_pair {
-    const char *ptr;  /* Points to the first char after '(' in regex  */
-    int len;          /* Length of the text between '(' and ')'       */
-    int branches;     /* Index in the branches array for this pair    */
-    int num_branches; /* Number of '|' in this bracket pair           */
-  } brackets[MAX_BRACKETS];
+  struct bracket_pair brackets[MAX_BRACKETS];
   int num_brackets;
 
   /*
    * Describes alternations ('|' operators) in the regular expression.
    * Each branch falls into a specific branch pair.
    */
-  struct branch {
-    int bracket_index;    /* index into 'brackets' array defined above */
-    const char *schlong;  /* points to the '|' character in the regex */
-  } branches[MAX_BRANCHES];
+  struct branch branches[MAX_BRANCHES];
   int num_branches;
 
   /* Array of captures provided by the user */
@@ -429,6 +433,9 @@ int slre_match(const char *regexp, const char *s, int s_len,
 /*****************************************************************************/
 /********************************** UNIT TEST ********************************/
 /*****************************************************************************/
+/* To run a test under UNIX, do:                        */
+/* cc slre.c -DSLRE_UNIT_TEST -o /tmp/a && /tmp/a       */
+
 #ifdef SLRE_UNIT_TEST
 static int static_total_tests = 0;
 static int static_failed_tests = 0;
@@ -458,7 +465,7 @@ static char *slre_replace(const char *regex, const char *buf,
     } else {
       n1 = len, n2 = 0, n3 = 0;
     }
-    s = realloc(s, s_len + n1 + n2 + n3 + 1);
+    s = (char *) realloc(s, s_len + n1 + n2 + n3 + 1);
     memcpy(s + s_len, buf, n1);
     memcpy(s + s_len + n1, sub, n2);
     memcpy(s + s_len + n1 + n2, cap.ptr + cap.len, n3);
