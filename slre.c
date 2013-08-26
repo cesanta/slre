@@ -286,7 +286,11 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
 
 /* Process branch points */
 static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
-  const struct bracket_pair *b = &info->brackets[bi];
+  const struct
+# ifdef __cplusplus 
+  regex_info::
+# endif
+  bracket_pair *b = &info->brackets[bi];
   int i = 0, len, result;
   const char *p;
 
@@ -305,7 +309,11 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
 
 static void setup_branch_points(struct regex_info *info) {
   int i, j;
-  struct branch tmp;
+  struct
+# ifdef __cplusplus 
+  regex_info::
+# endif
+  branch tmp;
 
   /* First, sort branches. Must be stable, no qsort. Use bubble algo. */
   for (i = 0; i < info->num_branches; i++) {
@@ -458,7 +466,7 @@ static char *slre_replace(const char *regex, const char *buf,
     } else {
       n1 = len, n2 = 0, n3 = 0;
     }
-    s = realloc(s, s_len + n1 + n2 + n3 + 1);
+    s = (char *) realloc(s, s_len + n1 + n2 + n3 + 1);
     memcpy(s + s_len, buf, n1);
     memcpy(s + s_len + n1, sub, n2);
     memcpy(s + s_len + n1 + n2, cap.ptr + cap.len, n3);
