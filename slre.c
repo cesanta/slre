@@ -54,7 +54,8 @@ struct bracket_pair {
 };
 
 struct branch {
-  int bracket_index;    /* index into 'brackets' array defined above */
+  int bracket_index;    /* index for 'struct bracket_pair brackets' */
+                        /* array defined below                      */
   const char *schlong;  /* points to the '|' character in the regex */
 };
 
