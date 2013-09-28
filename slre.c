@@ -208,7 +208,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
 
   DBG(("%s [%.*s] [%.*s]\n", __func__, re_len, re, s_len, s));
 
-  for (i = j = 0; i < re_len && j < s_len; i += step) {
+  for (i = j = 0; i < re_len && j <= s_len; i += step) {
 
     /* Handle quantifiers. Get the length of the chunk. */
     step = re[i] == '(' ? info->brackets[bi + 1].len + 2 :
@@ -271,19 +271,15 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       j += n;
     } else if (re[i] == '^') {
       FAIL_IF(j != 0, static_error_no_match);
+    } else if (re[i] == '$') {
+      FAIL_IF(j != s_len, static_error_no_match);
     } else {
+      FAIL_IF(j == s_len, info->error_msg);
       n = match_op((unsigned char *) (re + i), (unsigned char *) (s + j), info);
       FAIL_IF(n <= 0, info->error_msg);
       j += n;
     }
   }
-
-  /*
-   * Process $ anchor here. If we've reached the end of the string,
-   * but did not exhaust regexp yet, this is no match.
-   */
-  FAIL_IF(i < re_len && !(re[i] == '$' && i + 1 == re_len),
-          static_error_no_match);
 
   return j;
 }
@@ -591,6 +587,11 @@ int main(void) {
   ASSERT(slre_match("(|.c)", "abc", 3, caps, 10, &msg) == 3);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "bc", 2) == 0);
+
+  /* Optional match at the end of the string */
+  ASSERT(slre_match("^.*c.?$", "abc", 3, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("(?i)^.*C.?$", "abc", 3, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("bk?", "ab", 2, NULL, 0, &msg) == 2);
 
   {
     /* Example: HTTP request */
