@@ -275,7 +275,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     } else if (re[i] == '$') {
       FAIL_IF(j != s_len, static_error_no_match);
     } else {
-      FAIL_IF(j == s_len, info->error_msg);
+      FAIL_IF(j >= s_len, static_error_no_match);
       n = match_op((unsigned char *) (re + i), (unsigned char *) (s + j), info);
       FAIL_IF(n <= 0, info->error_msg);
       j += n;
