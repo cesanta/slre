@@ -593,6 +593,12 @@ int main(void) {
   ASSERT(slre_match("^.*c.?$", "abc", 3, NULL, 0, &msg) == 3);
   ASSERT(slre_match("(?i)^.*C.?$", "abc", 3, NULL, 0, &msg) == 3);
   ASSERT(slre_match("bk?", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("b(k?)", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("b[k-z]*", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("ab(k|z|y)*", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("[b-z].*", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("(b|z|u).*", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("ab(k|z|y)?", "ab", 2, NULL, 0, &msg) == 2);
 
   {
     /* Example: HTTP request */
