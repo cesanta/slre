@@ -222,13 +222,12 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     FAIL_IF(step <= 0, static_error_invalid_set);
 
     if (i + step < re_len && is_quantifier(re + i + step)) {
-      DBG(("QUANTIFIER: [%.*s] %c\n", step, re + i, re[i + step]));
+      DBG(("QUANTIFIER: [%.*s] %c %d\n", step, re + i, re[i + step], j));
       if (re[i + step] == '?') {
         j += bar(re + i, step, s + j, s_len - j, info, bi);
         i++;
-        continue;
       } else if (re[i + step] == '+' || re[i + step] == '*') {
-        int j2 = j, nj = 0, n1, n2, ni, non_greedy = 0;
+        int j2 = j, nj = j, n1, n2, ni, non_greedy = 0;
 
         /* Points to the regexp code after the quantifier */
         ni = i + step + 1;
@@ -242,15 +241,16 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
             /* After quantifier, there is nothing */
             nj = j2 + n1;
           } else if ((n2 = bar(re + ni, re_len - ni, s + j2 + n1,
-                              s_len - (j2 + n1), info, bi)) > 0) {
+                               s_len - (j2 + n1), info, bi)) > 0) {
             nj = j2 + n1 + n2;
           }
-          if (nj > 0 && non_greedy) break;
+          if (nj > j && non_greedy) break;
           j2 += n1;
         }
-        FAIL_IF(re[i + step] == '+' && nj == 0, static_error_no_match);
+        FAIL_IF(re[i + step] == '+' && nj == j, static_error_no_match);
         return nj;
       }
+      continue;
     }
 
     if (re[i] == '[') {
@@ -264,7 +264,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       DBG(("CAPTURING [%.*s] [%.*s]\n", step, re + i, s_len - j, s + j));
       n = doh(s + j, s_len - j, info, bi);
       DBG(("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n));
-      FAIL_IF(n <= 0, info->error_msg);
+      FAIL_IF(n <= 0 && j < s_len, info->error_msg);
       if (info->caps != NULL) {
         info->caps[bi - 1].ptr = s + j;
         info->caps[bi - 1].len = n;
@@ -298,7 +298,7 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
       info->branches[b->branches + i].schlong - p;
     DBG(("%s %d %d [%.*s]\n", __func__, bi, i, len, p));
     result = bar(p, len, s, s_len, info, bi);
-  } while (i++ < b->num_branches);  /* At least 1 iteration */
+  } while (result <= 0 && i++ < b->num_branches);  /* At least 1 iteration */
 
 
   return result;
@@ -588,6 +588,10 @@ int main(void) {
   ASSERT(slre_match("(|.c)", "abc", 3, caps, 10, &msg) == 3);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "bc", 2) == 0);
+  ASSERT(slre_match("a|b|c", "a", 1, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("a|b|c", "b", 1, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("a|b|c", "c", 1, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("a|b|c", "d", 1, NULL, 0, &msg) == 0);
 
   /* Optional match at the end of the string */
   ASSERT(slre_match("^.*c.?$", "abc", 3, NULL, 0, &msg) == 3);
