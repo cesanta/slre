@@ -207,8 +207,6 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
   /* i is offset in re, j is offset in s, bi is brackets index */
   int i, j, n, step;
 
-  DBG(("%s [%.*s] [%.*s]\n", __func__, re_len, re, s_len, s));
-
   for (i = j = 0; i < re_len && j <= s_len; i += step) {
 
     /* Handle quantifiers. Get the length of the chunk. */
@@ -247,7 +245,10 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
           if (nj > j && non_greedy) break;
           j2 += n1;
         }
+        DBG(("STAR/PLUS END: %d %d %d\n", j, nj, re_len - ni));
         FAIL_IF(re[i + step] == '+' && nj == j, static_error_no_match);
+
+        /* Returning here cause we've matched the rest of RE already */
         return nj;
       }
       continue;
@@ -304,6 +305,20 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
   return result;
 }
 
+static int baz(const char *s, int s_len, struct regex_info *info) {
+  int i, result = 0, is_anchored = info->brackets[0].ptr[0] == '^';
+
+  for (i = 0; i < s_len; i++) {
+    result = doh(s + i, s_len - i, info, 0);
+    if (result > 0 || is_anchored) {
+      result += i;
+      break;
+    }
+  }
+
+  return result;
+}
+
 static void setup_branch_points(struct regex_info *info) {
   int i, j;
   struct branch tmp;
@@ -335,7 +350,7 @@ static void setup_branch_points(struct regex_info *info) {
 
 static int foo(const char *re, int re_len, const char *s, int s_len,
                struct regex_info *info) {
-  int result, i, step, depth = 0;
+  int i, step, depth = 0;
   const char *stack[ARRAY_SIZE(info->brackets)];
 
   stack[0] = re;
@@ -380,22 +395,9 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
   }
 
   FAIL_IF(depth != 0, static_error_unbalanced_brackets);
-
   setup_branch_points(info);
 
-  /* Scan the string from left to right, applying the regex. Stop on match. */
-  result = 0;
-  for (i = 0; i < s_len; i++) {
-    result = doh(s + i, s_len - i, info, 0);
-    DBG(("   (iter %d) -> %d [%.*s] [%.*s] [%s]\n", i, result, re_len, re,
-         s_len - i, s + i, info->error_msg));
-    if (result > 0 || re[0] == '^') {
-      result += i;
-      break;
-    }
-  }
-
-  return result;
+  return baz(s, s_len, info);
 }
 
 int slre_match(const char *regexp, const char *s, int s_len,
@@ -478,6 +480,19 @@ static char *slre_replace(const char *regex, const char *buf,
 int main(void) {
   const char *msg = "";
   struct slre_cap caps[10];
+
+  /* Metacharacters */
+#if 0
+  ASSERT(slre_match("$", "abcd", 4, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("^", "abcd", 4, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("x|^", "abcd", 4, NULL, 0, &msg) == 0);
+  ASSERT(slre_match("x|$", "abcd", 4, NULL, 0, &msg) == 4);
+  ASSERT(slre_match("x", "abcd", 4, NULL, 0, &msg) == -1);
+  ASSERT(slre_match("\\\\", "c:\\Tools", 8, NULL, 0, &msg) == 3);
+  ASSERT(slre_match("\\\\.*", "c:\\Tools", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("\\\\.*$", "c:\\Tools", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("(?i)^.*\\\\.*$", "c:\\Tools", 8, NULL, 0, &msg) == 8);
+#endif
 
   /* Character sets */
   ASSERT(slre_match("[abc]", "1c2", 3, NULL, 0, &msg) == 2);
