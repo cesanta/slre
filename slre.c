@@ -32,13 +32,13 @@ static const char *static_error_invalid_set = "Invalid [] spec";
 static const char *static_error_invalid_metacharacter = "Invalid metacharacter";
 static const char *static_error_more_caps = "Caps array is too small";
 
-static const char *static_metacharacters = "^$().[]*+?|\\";
+static const char *static_metacharacters = "^$().[]*+?|\\Ssd";
 
 #define MAX_BRANCHES 100
 #define MAX_BRACKETS 100
 #define ARRAY_SIZE(ar) (int) (sizeof(ar) / sizeof((ar)[0]))
 #define FAIL_IF(cond,msg) do { if (cond) \
-  {info->error_msg = msg; return 0; }} while (0)
+  {info->error_msg = msg; return -1; }} while (0)
 
 #ifdef SLRE_DEBUG
 #define DBG(x) printf x
@@ -144,19 +144,14 @@ static int match_op(const unsigned char *re, const unsigned char *s,
 
         case 'x':
           /* Match byte, \xHH where HH is hexadecimal byte representaion */
-          FAIL_IF(!(isxdigit(re[2]) && isxdigit(re[3])),
-                  static_error_invalid_metacharacter);
           FAIL_IF(hextoi(re + 2) != *s, static_error_no_match);
           result++;
           break;
 
         default:
-          if (is_metacharacter(re + 1)) {
-            FAIL_IF(re[1] != s[0], static_error_no_match);
-            result++;
-          } else {
-            FAIL_IF(1, static_error_invalid_metacharacter);
-          }
+          /* Valid metacharacter check is done in bar() */
+          FAIL_IF(re[1] != s[0], static_error_no_match);
+          result++;
           break;
       }
       break;
@@ -180,11 +175,11 @@ static int match_op(const unsigned char *re, const unsigned char *s,
 
 static int match_set(const char *re, int re_len, const char *s,
                      struct regex_info *info) {
-  int len = 0, result = 0, invert = re[0] == '^';
+  int len = 0, result = -1, invert = re[0] == '^';
 
   if (invert) re++, re_len--;
 
-  while (len <= re_len && re[len] != ']' && result == 0) {
+  while (len <= re_len && re[len] != ']' && result <= 0) {
     /* Support character range */
     if (re[len] != '-' && re[len + 1] == '-' && re[len + 2] != ']' &&
         re[len + 2] != '\0') {
@@ -197,7 +192,7 @@ static int match_set(const char *re, int re_len, const char *s,
       len += op_len(re + len);
     }
   }
-  return (!invert && result) || (invert && !result) ? 1 : 0;
+  return (!invert && result > 0) || (invert && result <= 0) ? 1 : -1;
 }
 
 static int doh(const char *s, int s_len, struct regex_info *info, int bi);
@@ -213,7 +208,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     step = re[i] == '(' ? info->brackets[bi + 1].len + 2 :
       get_op_len(re + i, re_len - i);
 
-    DBG(("%s    [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n", __func__,
+    DBG(("%s [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n", __func__,
          re_len - i, re + i, s_len - j, s + j, re_len, step, i, j));
 
     FAIL_IF(is_quantifier(&re[i]), static_error_unexpected_quantifier);
@@ -222,7 +217,8 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     if (i + step < re_len && is_quantifier(re + i + step)) {
       DBG(("QUANTIFIER: [%.*s] %c %d\n", step, re + i, re[i + step], j));
       if (re[i + step] == '?') {
-        j += bar(re + i, step, s + j, s_len - j, info, bi);
+        int result = bar(re + i, step, s + j, s_len - j, info, bi);
+        j += result > 0 ? result : 0;
         i++;
       } else if (re[i + step] == '+' || re[i + step] == '*') {
         int j2 = j, nj = j, n1, n2, ni, non_greedy = 0;
@@ -239,7 +235,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
             /* After quantifier, there is nothing */
             nj = j2 + n1;
           } else if ((n2 = bar(re + ni, re_len - ni, s + j2 + n1,
-                               s_len - (j2 + n1), info, bi)) > 0) {
+                               s_len - (j2 + n1), info, bi)) >= 0) {
             nj = j2 + n1 + n2;
           }
           if (nj > j && non_greedy) break;
@@ -265,7 +261,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       DBG(("CAPTURING [%.*s] [%.*s]\n", step, re + i, s_len - j, s + j));
       n = doh(s + j, s_len - j, info, bi);
       DBG(("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n));
-      FAIL_IF(n <= 0 && j < s_len, info->error_msg);
+      FAIL_IF(n < 0, info->error_msg);
       if (info->caps != NULL) {
         info->caps[bi - 1].ptr = s + j;
         info->caps[bi - 1].len = n;
@@ -306,14 +302,15 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
 }
 
 static int baz(const char *s, int s_len, struct regex_info *info) {
-  int i, result = 0, is_anchored = info->brackets[0].ptr[0] == '^';
+  int i, result = -1, is_anchored = info->brackets[0].ptr[0] == '^';
 
-  for (i = 0; i < s_len; i++) {
+  for (i = 0; i <= s_len; i++) {
     result = doh(s + i, s_len - i, info, 0);
-    if (result > 0 || is_anchored) {
+    if (result >= 0) {
       result += i;
       break;
     }
+    if (is_anchored) break;
   }
 
   return result;
@@ -372,6 +369,18 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
         info->num_brackets - 1 : depth;
       info->branches[info->num_branches].schlong = &re[i];
       info->num_branches++;
+    } else if (re[i] == '\\') {
+      FAIL_IF(i >= re_len - 1, static_error_invalid_metacharacter);
+      if (re[i + 1] == 'x') {
+        /* Hex digit specification must follow */
+        FAIL_IF(re[i + 1] == 'x' && i >= re_len - 3,
+                static_error_invalid_metacharacter);
+        FAIL_IF(re[i + 1] ==  'x' && !(isxdigit(re[i + 2]) &&
+                isxdigit(re[i + 3])), static_error_invalid_metacharacter);
+      } else {
+        FAIL_IF(!is_metacharacter((unsigned char *) re + i + 1),
+                static_error_invalid_metacharacter);
+      }
     } else if (re[i] == '(') {
       FAIL_IF(info->num_brackets >= ARRAY_SIZE(info->brackets),
               "Too many (. Increase MAX_BRACKETS");
@@ -425,7 +434,7 @@ int slre_match(const char *regexp, const char *s, int s_len,
     *error_msg = info.error_msg;
   }
 
-  return result;
+  return result > 0 ? result : 0;
 }
 
 
@@ -482,17 +491,20 @@ int main(void) {
   struct slre_cap caps[10];
 
   /* Metacharacters */
-#if 0
   ASSERT(slre_match("$", "abcd", 4, NULL, 0, &msg) == 4);
   ASSERT(slre_match("^", "abcd", 4, NULL, 0, &msg) == 0);
   ASSERT(slre_match("x|^", "abcd", 4, NULL, 0, &msg) == 0);
   ASSERT(slre_match("x|$", "abcd", 4, NULL, 0, &msg) == 4);
-  ASSERT(slre_match("x", "abcd", 4, NULL, 0, &msg) == -1);
-  ASSERT(slre_match("\\\\", "c:\\Tools", 8, NULL, 0, &msg) == 3);
-  ASSERT(slre_match("\\\\.*", "c:\\Tools", 8, NULL, 0, &msg) == 8);
-  ASSERT(slre_match("\\\\.*$", "c:\\Tools", 8, NULL, 0, &msg) == 8);
+  ASSERT(slre_match("x", "abcd", 4, NULL, 0, &msg) == 0);
+  ASSERT(slre_match(".", "abcd", 4, NULL, 0, &msg) == 1);
   ASSERT(slre_match("(?i)^.*\\\\.*$", "c:\\Tools", 8, NULL, 0, &msg) == 8);
-#endif
+  ASSERT(slre_match("\\", "a", 1, NULL, 0, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
+  ASSERT(slre_match("\\x", "a", 1, NULL, 0, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
+  ASSERT(slre_match("\\x1", "a", 1, NULL, 0, &msg) == 0);
+  ASSERT(strcmp(msg, static_error_invalid_metacharacter) == 0);
+  ASSERT(slre_match("\\x20", " ", 1, NULL, 0, &msg) == 1);
 
   /* Character sets */
   ASSERT(slre_match("[abc]", "1c2", 3, NULL, 0, &msg) == 2);
@@ -618,6 +630,10 @@ int main(void) {
   ASSERT(slre_match("[b-z].*", "ab", 2, NULL, 0, &msg) == 2);
   ASSERT(slre_match("(b|z|u).*", "ab", 2, NULL, 0, &msg) == 2);
   ASSERT(slre_match("ab(k|z|y)?", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match(".*", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match(".*$", "ab", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("a+$", "a", 1, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("a*$", "a", 1, NULL, 0, &msg) == 1);
 
   {
     /* Example: HTTP request */
