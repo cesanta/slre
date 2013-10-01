@@ -215,13 +215,14 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     FAIL_IF(step <= 0, static_error_invalid_set);
 
     if (i + step < re_len && is_quantifier(re + i + step)) {
-      DBG(("QUANTIFIER: [%.*s] %c %d\n", step, re + i, re[i + step], j));
+      DBG(("QUANTIFIER: [%.*s]%c [%.*s]\n", step, re + i,
+           re[i + step], s_len - j, s + j));
       if (re[i + step] == '?') {
         int result = bar(re + i, step, s + j, s_len - j, info, bi);
         j += result > 0 ? result : 0;
         i++;
       } else if (re[i + step] == '+' || re[i + step] == '*') {
-        int j2 = j, nj = j, n1, n2, ni, non_greedy = 0;
+        int j2 = j, nj = j, n1, n2 = -1, ni, non_greedy = 0;
 
         /* Points to the regexp code after the quantifier */
         ni = i + step + 1;
@@ -243,6 +244,10 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
         }
         DBG(("STAR/PLUS END: %d %d %d\n", j, nj, re_len - ni));
         FAIL_IF(re[i + step] == '+' && nj == j, static_error_no_match);
+
+        /* If while loop body above was not executed for the * quantifier,  */
+        /* make sure the rest of the regex matches                          */
+        FAIL_IF(nj == j && ni < re_len && n2 < 0, static_error_no_match);
 
         /* Returning here cause we've matched the rest of RE already */
         return nj;
@@ -293,10 +298,10 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
     len = b->num_branches == 0 ? b->len :
       i == b->num_branches ? b->ptr + b->len - p :
       info->branches[b->branches + i].schlong - p;
-    DBG(("%s %d %d [%.*s]\n", __func__, bi, i, len, p));
+    DBG(("%s %d %d [%.*s] [%.*s]\n", __func__, bi, i, len, p, s_len, s));
     result = bar(p, len, s, s_len, info, bi);
+    DBG(("%s <- %d\n", __func__, result));
   } while (result <= 0 && i++ < b->num_branches);  /* At least 1 iteration */
-
 
   return result;
 }
@@ -431,7 +436,7 @@ int slre_match(const char *regexp, const char *s, int s_len,
   result = foo(regexp, strlen(regexp), s, s_len, &info);
 
   if (error_msg != NULL) {
-    *error_msg = info.error_msg;
+    *error_msg = result > 0 ? "" : info.error_msg;
   }
 
   return result > 0 ? result : 0;
@@ -632,8 +637,11 @@ int main(void) {
   ASSERT(slre_match("ab(k|z|y)?", "ab", 2, NULL, 0, &msg) == 2);
   ASSERT(slre_match(".*", "ab", 2, NULL, 0, &msg) == 2);
   ASSERT(slre_match(".*$", "ab", 2, NULL, 0, &msg) == 2);
-  ASSERT(slre_match("a+$", "a", 1, NULL, 0, &msg) == 1);
-  ASSERT(slre_match("a*$", "a", 1, NULL, 0, &msg) == 1);
+  ASSERT(slre_match("a+$", "aa", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match("a*$", "aa", 2, NULL, 0, &msg) == 2);
+  ASSERT(slre_match( "a+$" ,"Xaa", 3, NULL, 0, &msg) == 3);
+  ASSERT(slre_match( "a*$" ,"Xaa", 3, NULL, 0, &msg) == 3);
+  ASSERT(msg[0] == '\0');
 
   {
     /* Example: HTTP request */
