@@ -35,7 +35,18 @@ struct slre_cap {
 };
 
 int slre_match(const char *regexp, const char *buf, int buf_len,
-               struct slre_cap *caps, int num_caps, const char **error_msg);
+               struct slre_cap *caps, int num_caps);
+
+/* slre_match() failure codes */
+#define SLRE_NO_MATCH               -1
+#define SLRE_UNEXPECTED_QUANTIFIER  -2
+#define SLRE_UNBALANCED_BRACKETS    -3
+#define SLRE_INTERNAL_ERROR         -4
+#define SLRE_INVALID_CHARACTER_SET  -5
+#define SLRE_INVALID_METACHARACTER  -6
+#define SLRE_CAPS_ARRAY_TOO_SMALL   -7
+#define SLRE_TOO_MANY_BRANCHES      -8
+#define SLRE_TOO_MANY_BRACKETS      -9
 
 #ifdef __cplusplus
 }

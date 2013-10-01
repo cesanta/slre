@@ -42,12 +42,12 @@ Under development: Unicode support.
 ## API
 
     int slre_match(const char *regexp, const char *buf, int buf_len,
-                   struct slre_cap *caps, int num_caps, const char **error_msg);
+                   struct slre_cap *caps, int num_caps);
 
 `slre_match()` matches string buffer `buf` of length `buf_len` against
 regular expression `regexp`, which should conform the syntax outlined
 above. If regular expression `regexp` contains brackets, `slre_match()`
-may capture the respective substrings into the array of `struct slre_cap`
+can capture the respective substrings into the array of `struct slre_cap`
 structures:
 
     /* Stores matched fragment for the expression inside brackets */
@@ -56,24 +56,35 @@ structures:
       int len;          /* Length of the matched fragment */
     };
 
-N-th member of the `caps` array will contain fragment that corresponds
-to the N-th opening bracket in the `regex`.
+N-th member of the `caps` array will contain fragment that corresponds to the
+N-th opening bracket in the `regex`, N is zero-based. `slre_match()` returns
+number of bytes scanned from the beginning of the string. If return value is
+greater or equal to 0, there is a match. If return value is less then 0, there
+is no match. Negative return codes are as follows:
 
-`slre_match()` returns 0 if there is no match found. Otherwise, it returns
-the number scanned bytes from the beginning of the string.
+    #define SLRE_NO_MATCH               -1
+    #define SLRE_UNEXPECTED_QUANTIFIER  -2
+    #define SLRE_UNBALANCED_BRACKETS    -3
+    #define SLRE_INTERNAL_ERROR         -4
+    #define SLRE_INVALID_CHARACTER_SET  -5
+    #define SLRE_INVALID_METACHARACTER  -6
+    #define SLRE_CAPS_ARRAY_TOO_SMALL   -7
+    #define SLRE_TOO_MANY_BRANCHES      -8
+    #define SLRE_TOO_MANY_BRACKETS      -9
+
 
 ## Example: parsing HTTP request line
 
-    const char *error_msg, *request = " GET /index.html HTTP/1.0\r\n\r\n";
+    const char *request = " GET /index.html HTTP/1.0\r\n\r\n";
     struct slre_cap caps[4];
 
     if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
-                   request, strlen(request), caps, 4, &error_msg)) {
+                   request, strlen(request), caps, 4) > 0) {
       printf("Method: [%.*s], URI: [%.*s]\n",
              caps[0].len, caps[0].ptr,
              caps[1].len, caps[1].ptr);
     } else {
-      printf("Error parsing [%s]: [%s]\n", request, error_msg);
+      printf("Error parsing [%s]\n", request);
     }
 
 ## Example: find all URLs in a string
