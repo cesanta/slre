@@ -528,6 +528,10 @@ int main(void) {
   ASSERT(slre_match("l$", "fooklmn", 7, NULL, 0) == SLRE_NO_MATCH);
   ASSERT(slre_match(".$", "fooklmn", 7, NULL, 0) == 7);
   ASSERT(slre_match("a?", "fooklmn", 7, NULL, 0) == 0);
+  ASSERT(slre_match("^a*CONTROL", "CONTROL", 7, NULL, 0) == 7);
+  ASSERT(slre_match("^[a]*CONTROL", "CONTROL", 7, NULL, 0) == 7);
+  ASSERT(slre_match("^(a*)CONTROL", "CONTROL", 7, NULL, 0) == 7);
+  ASSERT(slre_match("^(a*)?CONTROL", "CONTROL", 7, NULL, 0) == 7);
 
   ASSERT(slre_match("\\_", "abc", 3, NULL, 0) == SLRE_INVALID_METACHARACTER);
   ASSERT(slre_match("+", "fooklmn", 7, NULL, 0) == SLRE_UNEXPECTED_QUANTIFIER);
