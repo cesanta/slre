@@ -218,17 +218,22 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
           ni++;
         }
 
-        while ((n1 = bar(re + i, step, s + j2, s_len - j2, info, bi)) > 0) {
+        do {
+          n1 = bar(re + i, step, s + j2, s_len - j2, info, bi);
+          j2 += n1 > 0 ? n1 : 0;
+          if (re[i + step] == '+' && n1 < 0) break;
+
           if (ni >= re_len) {
             /* After quantifier, there is nothing */
-            nj = j2 + n1;
-          } else if ((n2 = bar(re + ni, re_len - ni, s + j2 + n1,
-                               s_len - (j2 + n1), info, bi)) >= 0) {
-            nj = j2 + n1 + n2;
+            nj = j2;
+          } else if ((n2 = bar(re + ni, re_len - ni, s + j2,
+                               s_len - j2, info, bi)) >= 0) {
+            /* Regex after quantifier matched */
+            nj = j2 + n2;
           }
           if (nj > j && non_greedy) break;
-          j2 += n1;
-        }
+        } while (n1 > 0);
+
         DBG(("STAR/PLUS END: %d %d %d\n", j, nj, re_len - ni));
         FAIL_IF(re[i + step] == '+' && nj == j, SLRE_NO_MATCH);
 
