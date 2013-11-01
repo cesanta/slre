@@ -580,6 +580,7 @@ int main(void) {
       SLRE_CAPS_ARRAY_TOO_SMALL);
   ASSERT(slre_match("(.+/\\d+\\.\\d+)\\.jpg$", "/foo/bar/12.34.jpg", 18,
                     caps, 1) == 18);
+  ASSERT(slre_match("(ab|cd).*\\.(xx|yy)", "ab.yy", 5, NULL, 0) == 5);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, 0) == 6);
