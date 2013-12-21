@@ -115,3 +115,8 @@ v.2 license](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) for
 free, or under the terms of standard commercial license provided by [Cesanta
 Software](http://cesanta.com). Businesses who whish to use Cesanta's products
 must [license commercial version](http://cesanta.com/products.html).
+
+[Super Light DNS Resolver](https://github.com/cesanta/sldr),
+[Mongoose web server](https://github.com/cesanta/mongoose)
+are other projects by Cesanta Software, developed with the same philosophy
+of functionality and simplicity.
