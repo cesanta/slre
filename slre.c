@@ -345,9 +345,6 @@ static void setup_branch_points(struct regex_info *info) {
 static int foo(const char *re, int re_len, const char *s, int s_len,
                struct regex_info *info) {
   int i, step, depth = 0;
-  const char *stack[ARRAY_SIZE(info->brackets)];
-
-  stack[0] = re;
 
   /* First bracket captures everything */
   info->brackets[0].ptr = re;
@@ -382,7 +379,6 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
       FAIL_IF(info->num_brackets >= ARRAY_SIZE(info->brackets),
               SLRE_TOO_MANY_BRACKETS);
       depth++;  /* Order is important here. Depth increments first. */
-      stack[depth] = &re[i];
       info->brackets[info->num_brackets].ptr = re + i + 1;
       info->brackets[info->num_brackets].len = -1;
       info->num_brackets++;
@@ -580,6 +576,7 @@ int main(void) {
       SLRE_CAPS_ARRAY_TOO_SMALL);
   ASSERT(slre_match("(.+/\\d+\\.\\d+)\\.jpg$", "/foo/bar/12.34.jpg", 18,
                     caps, 1) == 18);
+  ASSERT(slre_match("(ab|cd).*\\.(xx|yy)", "ab.yy", 5, NULL, 0) == 5);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, 0) == 6);
