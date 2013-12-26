@@ -108,13 +108,13 @@ Output:
     Found URL: [HTTPS://FOO.COM/x?b#c=tab1]
     Found URL: [http://cesanta.com]
 
-# Licensing
+# License
 
-SLRE is dual licensed. It is available either under the terms of [GNU GPL
-v.2 license](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) for
-free, or under the terms of standard commercial license provided by [Cesanta
-Software](http://cesanta.com). Businesses who whish to use Cesanta's products
-must [license commercial version](http://cesanta.com/products.html).
+SLRE is released under
+[GNU GPL v.2](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+Businesses have an option to get non-restrictive, royalty-free commercial
+license and professional support from
+[Cesanta Software](http://cesanta.com).
 
 [Super Light DNS Resolver](https://github.com/cesanta/sldr),
 [Mongoose web server](https://github.com/cesanta/mongoose)
