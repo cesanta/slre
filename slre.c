@@ -219,8 +219,9 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
         }
 
         do {
-          n1 = bar(re + i, step, s + j2, s_len - j2, info, bi);
-          j2 += n1 > 0 ? n1 : 0;
+          if ((n1 = bar(re + i, step, s + j2, s_len - j2, info, bi)) > 0) {
+            j2 += n1;
+          }
           if (re[i + step] == '+' && n1 < 0) break;
 
           if (ni >= re_len) {
@@ -234,7 +235,12 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
           if (nj > j && non_greedy) break;
         } while (n1 > 0);
 
-        DBG(("STAR/PLUS END: %d %d %d\n", j, nj, re_len - ni));
+        if (n1 < 0 && re[i + step] == '*' &&
+            (n2 = bar(re + ni, re_len - ni, s + j, s_len - j, info, bi)) > 0) {
+          nj = j + n2;
+        }
+
+        DBG(("STAR/PLUS END: %d %d %d %d %d\n", j, nj, re_len - ni, n1, n2));
         FAIL_IF(re[i + step] == '+' && nj == j, SLRE_NO_MATCH);
 
         /* If while loop body above was not executed for the * quantifier,  */
@@ -255,8 +261,21 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     } else if (re[i] == '(') {
       bi++;
       FAIL_IF(bi >= info->num_brackets, SLRE_INTERNAL_ERROR);
-      DBG(("CAPTURING [%.*s] [%.*s]\n", step, re + i, s_len - j, s + j));
-      n = doh(s + j, s_len - j, info, bi);
+      DBG(("CAPTURING [%.*s] [%.*s] [%s]\n",
+           step, re + i, s_len - j, s + j, re + i + step));
+
+      if (re_len - (i + step) <= 0) {
+        /* Nothing follows brackets */
+        n = doh(s + j, s_len - j, info, bi);
+      } else {
+        int j2;
+        for (j2 = 0; j2 < s_len - j; j2++) {
+          if ((n = doh(s + j, s_len - (j + j2), info, bi)) >= 0 &&
+              bar(re + i + step, re_len - (i + step),
+                  s + j + n, s_len - (j + n), info, bi) >= 0) break;
+        }
+      }
+
       DBG(("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n));
       FAIL_IF(n < 0, n);
       if (info->caps != NULL) {
@@ -577,6 +596,8 @@ int main(void) {
   ASSERT(slre_match("(.+/\\d+\\.\\d+)\\.jpg$", "/foo/bar/12.34.jpg", 18,
                     caps, 1) == 18);
   ASSERT(slre_match("(ab|cd).*\\.(xx|yy)", "ab.yy", 5, NULL, 0) == 5);
+  ASSERT(slre_match(".*a", "abcdef", 6, NULL, 0) == 1);
+  ASSERT(slre_match("(.+)c", "abcdef", 6, NULL, 0) == 3);
 
   /* Greedy vs non-greedy */
   ASSERT(slre_match(".+c", "abcabc", 6, NULL, 0) == 6);
