@@ -63,9 +63,9 @@ int main(void) {
 
   ASSERT(slre_match("^.+$", "", 0, NULL, 0) == SLRE_NO_MATCH);
   ASSERT(slre_match("^(.+)$", "", 0, NULL, 0) == SLRE_NO_MATCH);
-  ASSERT(slre_match("(?i)^([\\+\\-]?)([\\d]+)$", "+", 1,
+  ASSERT(slre_match("(?i)^([\\+-]?)([\\d]+)$", "+", 1,
                     caps, 10) == SLRE_NO_MATCH);
-  ASSERT(slre_match("(?i)^([\\+\\-]?)([\\d]+)$", "+27", 3,
+  ASSERT(slre_match("(?i)^([\\+-]?)([\\d]+)$", "+27", 3,
                     caps, 10) == 3);
   ASSERT(caps[0].len == 1);
   ASSERT(caps[0].ptr[0] == '+');
