@@ -46,7 +46,6 @@ static char *slre_replace(const char *regex, const char *buf,
 }
 
 int main(void) {
-  const char *msg = "";
   struct slre_cap caps[10];
 
   /* Metacharacters */
@@ -61,6 +60,22 @@ int main(void) {
   ASSERT(slre_match("\\x", "a", 1, NULL, 0) == SLRE_INVALID_METACHARACTER);
   ASSERT(slre_match("\\x1", "a", 1, NULL, 0) == SLRE_INVALID_METACHARACTER);
   ASSERT(slre_match("\\x20", " ", 1, NULL, 0) == 1);
+
+  ASSERT(slre_match("^.+$", "", 0, NULL, 0) == SLRE_NO_MATCH);
+  ASSERT(slre_match("^(.+)$", "", 0, NULL, 0) == SLRE_NO_MATCH);
+  ASSERT(slre_match("(?i)^([\\+\\-]?)([\\d]+)$", "+", 1,
+                    caps, 10) == SLRE_NO_MATCH);
+  ASSERT(slre_match("(?i)^([\\+\\-]?)([\\d]+)$", "+27", 3,
+                    caps, 10) == 3);
+  ASSERT(caps[0].len == 1);
+  ASSERT(caps[0].ptr[0] == '+');
+  ASSERT(caps[1].len == 2);
+  ASSERT(memcmp(caps[1].ptr, "27", 2) == 0);
+
+  ASSERT(slre_match("tel:\\+(\\d+[\\d-]+\\d)",
+                    "tel:+1-201-555-0123;a=b", 23, caps, 10) == 19);
+  ASSERT(caps[0].len == 14);
+  ASSERT(memcmp(caps[0].ptr, "1-201-555-0123", 14) == 0);
 
   /* Character sets */
   ASSERT(slre_match("[abc]", "1c2", 3, NULL, 0) == 2);
@@ -191,7 +206,6 @@ int main(void) {
   ASSERT(slre_match("a*$", "aa", 2, NULL, 0) == 2);
   ASSERT(slre_match( "a+$" ,"Xaa", 3, NULL, 0) == 3);
   ASSERT(slre_match( "a*$" ,"Xaa", 3, NULL, 0) == 3);
-  ASSERT(msg[0] == '\0');
 
   {
     /* Example: HTTP request */

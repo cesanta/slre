@@ -258,6 +258,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       FAIL_IF(n <= 0, SLRE_NO_MATCH);
       j += n;
     } else if (re[i] == '(') {
+      n = SLRE_NO_MATCH;
       bi++;
       FAIL_IF(bi >= info->num_brackets, SLRE_INTERNAL_ERROR);
       DBG(("CAPTURING [%.*s] [%.*s] [%s]\n",
@@ -268,7 +269,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
         n = doh(s + j, s_len - j, info, bi);
       } else {
         int j2;
-        for (j2 = 0; j2 < s_len - j; j2++) {
+        for (j2 = 0; j2 <= s_len - j; j2++) {
           if ((n = doh(s + j, s_len - (j + j2), info, bi)) >= 0 &&
               bar(re + i + step, re_len - (i + step),
                   s + j + n, s_len - (j + n), info, bi) >= 0) break;
