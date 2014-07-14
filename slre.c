@@ -66,10 +66,9 @@ struct regex_info {
   struct slre_cap *caps;
   int num_caps;
 
-  /* E.g. IGNORE_CASE. See enum below */
+  /* E.g. SLRE_IGNORE_CASE. See enum below */
   int flags;
 };
-enum { IGNORE_CASE = 1 };
 
 static int is_metacharacter(const unsigned char *s) {
   static const char *metacharacters = "^$().[]*+?|\\Ssd";
@@ -147,7 +146,7 @@ static int match_op(const unsigned char *re, const unsigned char *s,
     case '.': result++; break;
 
     default:
-      if (info->flags & IGNORE_CASE) {
+      if (info->flags & SLRE_IGNORE_CASE) {
         FAIL_IF(tolower(*re) != tolower(*s), SLRE_NO_MATCH);
       } else {
         FAIL_IF(*re != *s, SLRE_NO_MATCH);
@@ -169,7 +168,7 @@ static int match_set(const char *re, int re_len, const char *s,
     /* Support character range */
     if (re[len] != '-' && re[len + 1] == '-' && re[len + 2] != ']' &&
         re[len + 2] != '\0') {
-      result = info->flags &&  IGNORE_CASE ?
+      result = info->flags &&  SLRE_IGNORE_CASE ?
         *s >= re[len] && *s <= re[len + 2] :
         tolower(*s) >= tolower(re[len]) && tolower(*s) <= tolower(re[len + 2]);
       len += 3;
@@ -422,21 +421,15 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
 }
 
 int slre_match(const char *regexp, const char *s, int s_len,
-               struct slre_cap *caps, int num_caps) {
+               struct slre_cap *caps, int num_caps, int flags) {
   struct regex_info info;
 
   /* Initialize info structure */
-  info.flags = info.num_brackets = info.num_branches = 0;
+  info.flags = flags;
+  info.num_brackets = info.num_branches = 0;
   info.num_caps = num_caps;
   info.caps = caps;
 
   DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
-
-  /* Handle regexp flags. At the moment, only 'i' is supported */
-  if (memcmp(regexp, "(?i)", 4) == 0) {
-    info.flags |= IGNORE_CASE;
-    regexp += 4;
-  }
-
   return foo(regexp, strlen(regexp), s, s_len, &info);
 }
