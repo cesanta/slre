@@ -26,6 +26,12 @@ most.
     \s      Match whitespace
     \S      Match non-whitespace
     \d      Match decimal digit
+    \n      Match new line character
+    \r      Match line feed character
+    \f      Match form feed character
+    \v      Match vertical tab character
+    \t      Match horizontal tab character
+    \b      Match backspace character
     +       Match one or more times (greedy)
     +?      Match one or more times (non-greedy)
     *       Match zero or more times (greedy)
