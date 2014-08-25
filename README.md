@@ -79,7 +79,7 @@ is no match. Negative return codes are as follows:
     struct slre_cap caps[4];
 
     if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
-                   request, strlen(request), caps, 4) > 0) {
+                   request, strlen(request), caps, 4, NULL) > 0) {
       printf("Method: [%.*s], URI: [%.*s]\n",
              caps[0].len, caps[0].ptr,
              caps[1].len, caps[1].ptr);
