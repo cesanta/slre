@@ -309,8 +309,8 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
   do {
     p = i == 0 ? b->ptr : info->branches[b->branches + i - 1].schlong + 1;
     len = b->num_branches == 0 ? b->len :
-      i == b->num_branches ? b->ptr + b->len - p :
-      info->branches[b->branches + i].schlong - p;
+      i == b->num_branches ? (int) (b->ptr + b->len - p) :
+      (int) (info->branches[b->branches + i].schlong - p);
     DBG(("%s %d %d [%.*s] [%.*s]\n", __func__, bi, i, len, p, s_len, s));
     result = bar(p, len, s, s_len, info, bi);
     DBG(("%s <- %d\n", __func__, result));
@@ -408,7 +408,7 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
     } else if (re[i] == ')') {
       int ind = info->brackets[info->num_brackets - 1].len == -1 ?
         info->num_brackets - 1 : depth;
-      info->brackets[ind].len = &re[i] - info->brackets[ind].ptr;
+      info->brackets[ind].len = (int) (&re[i] - info->brackets[ind].ptr);
       DBG(("SETTING BRACKET %d [%.*s]\n",
            ind, info->brackets[ind].len, info->brackets[ind].ptr));
       depth--;
@@ -434,5 +434,5 @@ int slre_match(const char *regexp, const char *s, int s_len,
   info.caps = caps;
 
   DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
-  return foo(regexp, strlen(regexp), s, s_len, &info);
+  return foo(regexp, (int) strlen(regexp), s, s_len, &info);
 }
