@@ -42,7 +42,7 @@ Under development: Unicode support.
 ## API
 
     int slre_match(const char *regexp, const char *buf, int buf_len,
-                   struct slre_cap *caps, int num_caps);
+                   struct slre_cap *caps, int num_caps, int flags);
 
 `slre_match()` matches string buffer `buf` of length `buf_len` against
 regular expression `regexp`, which should conform the syntax outlined
@@ -79,7 +79,7 @@ is no match. Negative return codes are as follows:
     struct slre_cap caps[4];
 
     if (slre_match("^\\s*(\\S+)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)",
-                   request, strlen(request), caps, 4) > 0) {
+                   request, strlen(request), caps, 4, 0) > 0) {
       printf("Method: [%.*s], URI: [%.*s]\n",
              caps[0].len, caps[0].ptr,
              caps[1].len, caps[1].ptr);
@@ -98,7 +98,7 @@ is no match. Negative return codes are as follows:
     int i, j = 0, str_len = strlen(str);
 
     while (j < str_len &&
-           (i = slre_match(regex, str + j, str_len - j, caps, 2, NULL)) > 0) {
+           (i = slre_match(regex, str + j, str_len - j, caps, 2, 0)) > 0) {
       printf("Found URL: [%.*s]\n", caps[0].len, caps[0].ptr);
       j += i;
     }
