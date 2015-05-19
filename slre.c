@@ -235,7 +235,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
          * Even if we found one or more pattern, this branch will be executed,
          * changing the next captures.
          */
-        if (n1 < 0 && n1 < 0 && re[i + step] == '*' &&
+        if (n1 < 0 && n2 < 0 && re[i + step] == '*' &&
             (n2 = bar(re + ni, re_len - ni, s + j, s_len - j, info, bi)) > 0) {
           nj = j + n2;
         }
