@@ -213,6 +213,14 @@ int main(void) {
   ASSERT(slre_match( "a+$" ,"Xaa", 3, NULL, 0, 0) == 3);
   ASSERT(slre_match( "a*$" ,"Xaa", 3, NULL, 0, 0) == 3);
 
+  /* Ignore case flag */
+  ASSERT(slre_match("[a-h]+", "abcdefghxxx", 11, NULL, 0, 0) == 8);
+  ASSERT(slre_match("[A-H]+", "ABCDEFGHyyy", 11, NULL, 0, 0) == 8);
+  ASSERT(slre_match("[a-h]+", "ABCDEFGHyyy", 11, NULL, 0, 0) == SLRE_NO_MATCH);
+  ASSERT(slre_match("[A-H]+", "abcdefghyyy", 11, NULL, 0, 0) == SLRE_NO_MATCH);
+  ASSERT(slre_match("[a-h]+", "ABCDEFGHyyy", 11, NULL, 0, SLRE_IGNORE_CASE) == 8);
+  ASSERT(slre_match("[A-H]+", "abcdefghyyy", 11, NULL, 0, SLRE_IGNORE_CASE) == 8);
+
   {
     /* Example: HTTP request */
     const char *request = " GET /index.html HTTP/1.0\r\n\r\n";
