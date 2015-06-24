@@ -43,9 +43,9 @@ tests: $(unit_test) $(unit_test_shared)
 	bash unit_test.sh
 
 
-install:
-	sudo cp slre.h /usr/include/slre.h
-	sudo cp $(lib) /usr/lib/$(lib)
+install: $(libname)
+	cp $(shell pwd)/slre.h /usr/include/slre.h
+	cp $(shell pwd)/$(libname) /usr/lib/$(libname)
 
 uninstall:
 	rm -rf /usr/include/slre.h
