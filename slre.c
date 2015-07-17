@@ -166,7 +166,7 @@ static int match_set(const char *re, int re_len, const char *s,
     /* Support character range */
     if (re[len] != '-' && re[len + 1] == '-' && re[len + 2] != ']' &&
         re[len + 2] != '\0') {
-      result = info->flags &&  SLRE_IGNORE_CASE ?
+      result = info->flags &  SLRE_IGNORE_CASE ?
         tolower(*s) >= tolower(re[len]) && tolower(*s) <= tolower(re[len + 2]) :
         *s >= re[len] && *s <= re[len + 2];
       len += 3;
