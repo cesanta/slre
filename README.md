@@ -19,7 +19,6 @@ most.
 
 ## Supported Syntax
 
-    (?i)    Must be at the beginning of the regex. Makes match case-insensitive
     ^       Match beginning of a buffer
     $       Match end of a buffer
     ()      Grouping and substring capturing
@@ -78,6 +77,9 @@ is no match. Negative return codes are as follows:
     #define SLRE_TOO_MANY_BRANCHES      -8
     #define SLRE_TOO_MANY_BRACKETS      -9
 
+Valid flags are:
+
+    SLRE_IGNORE_CASE    do case-insensitive match
 
 ## Example: parsing HTTP request line
 
@@ -99,12 +101,12 @@ is no match. Negative return codes are as follows:
       "<img src=\"HTTPS://FOO.COM/x?b#c=tab1\"/> "
       "  <a href=\"http://cesanta.com\">some link</a>";
 
-    static const char *regex = "(?i)((https?://)[^\\s/'\"<>]+/?[^\\s'\"<>]*)";
+    static const char *regex = "((https?://)[^\\s/'\"<>]+/?[^\\s'\"<>]*)";
     struct slre_cap caps[2];
     int i, j = 0, str_len = strlen(str);
 
     while (j < str_len &&
-           (i = slre_match(regex, str + j, str_len - j, caps, 2, 0)) > 0) {
+           (i = slre_match(regex, str + j, str_len - j, caps, 2, SLRE_IGNORE_CASE)) > 0) {
       printf("Found URL: [%.*s]\n", caps[0].len, caps[0].ptr);
       j += i;
     }
