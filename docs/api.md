@@ -7,8 +7,8 @@ int slre_match(const char *regexp, const char *buf, int buf_len,
                struct slre_cap *caps, int num_caps, int flags);
 ```
 
-`slre_match()` matches string buffer `buf` of length `buf_len` against regular
-expression `regexp`, which should conform the syntax outlined above. If regular
+`slre_match()` matches the string buffer `buf` in length `buf_len` against the regular
+expression `regexp`, which should conform the syntax outlined above. If the regular
 expression `regexp` contains brackets, `slre_match()` can capture the
 respective substrings into the array of `struct slre_cap` structures:
 
@@ -22,8 +22,8 @@ struct slre_cap {
 
 N-th member of the `caps` array will contain fragment that corresponds to the
 N-th opening bracket in the `regex`, N is zero-based. `slre_match()` returns
-number of bytes scanned from the beginning of the string. If return value is
-greater or equal to 0, there is a match. If return value is less then 0, there
+the number of bytes scanned from the beginning of the string. If the return value is
+greater or equal to 0, there is a match. If the return value is less then 0, there
 is no match. Negative return codes are as follows:
 
 ```c
