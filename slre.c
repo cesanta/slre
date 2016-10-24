@@ -171,7 +171,7 @@ static int match_set(const char *re, int re_len, const char *s,
         *s >= re[len] && *s <= re[len + 2];
       len += 3;
     } else {
-      result = match_op((unsigned char *) re + len, (unsigned char *) s, info);
+      result = match_op((const unsigned char *) re + len, (const unsigned char *) s, info);
       len += op_len(re + len);
     }
   }
@@ -290,7 +290,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       FAIL_IF(j != s_len, SLRE_NO_MATCH);
     } else {
       FAIL_IF(j >= s_len, SLRE_NO_MATCH);
-      n = match_op((unsigned char *) (re + i), (unsigned char *) (s + j), info);
+      n = match_op((const unsigned char *) (re + i), (const unsigned char *) (s + j), info);
       FAIL_IF(n <= 0, n);
       j += n;
     }
@@ -392,7 +392,7 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
         FAIL_IF(re[i + 1] ==  'x' && !(isxdigit(re[i + 2]) &&
                 isxdigit(re[i + 3])), SLRE_INVALID_METACHARACTER);
       } else {
-        FAIL_IF(!is_metacharacter((unsigned char *) re + i + 1),
+        FAIL_IF(!is_metacharacter((const unsigned char *) re + i + 1),
                 SLRE_INVALID_METACHARACTER);
       }
     } else if (re[i] == '(') {
