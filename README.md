@@ -8,7 +8,7 @@ Documentation and API reference are at
 
 To submit contributions, sign
 [Cesanta CLA](https://docs.cesanta.com/contributors_la.shtml)
-and send GitHub pull request. You retain the copyright on your contributions.
+and send GitHub pull request.
 
 # Licensing
 
