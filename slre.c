@@ -126,7 +126,7 @@ static int match_op(const unsigned char *re, const unsigned char *s,
         case 'v': FAIL_IF(*s != '\v', SLRE_NO_MATCH); result++; break;
 
         case 'x':
-          /* Match byte, \xHH where HH is hexadecimal byte representation */
+          /* Match byte, \xHH where HH is hexadecimal byte representaion */
           FAIL_IF(hextoi(re + 2) != *s, SLRE_NO_MATCH);
           result++;
           break;
