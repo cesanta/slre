@@ -282,6 +282,9 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
       if (info->caps != NULL && n > 0) {
         info->caps[bi - 1].ptr = s + j;
         info->caps[bi - 1].len = n;
+      } else if (info->caps != NULL && n == 0) {
+        info->caps[bi - 1].ptr = NULL;
+        info->caps[bi - 1].len = 0;
       }
       j += n;
     } else if (re[i] == '^') {
