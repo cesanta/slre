@@ -73,6 +73,19 @@ int main(void) {
   ASSERT(caps[1].len == 2);
   ASSERT(memcmp(caps[1].ptr, "27", 2) == 0);
 
+  ASSERT(slre_match("^(-?[0-9]+[.|,][0-9]+)", "1", 1,
+                    caps, 10, 0) == SLRE_NO_MATCH);
+  ASSERT(slre_match("^(-?[0-9]+[.|,][0-9]+)", "1.0", 3,
+                    caps, 10, 0) == 3);
+  ASSERT(slre_match("^(-?[0-9]+[.|,][0-9]+)", "1,0", 3,
+                    caps, 10, 0) == 3);
+  ASSERT(slre_match("^(-?[0-9]+[.|,][0-9]+)", "-1", 2,
+                    caps, 10, 0) == SLRE_NO_MATCH);
+  ASSERT(slre_match("^(-?[0-9]+[.|,][0-9]+)", "-1.0", 4,
+                    caps, 10, 0) == 4);
+  ASSERT(slre_match("^(-?[0-9]+[.|,][0-9]+)", "-1,0", 4,
+                    caps, 10, 0) == 4);
+
   ASSERT(slre_match("tel:\\+(\\d+[\\d-]+\\d)",
                     "tel:+1-201-555-0123;a=b", 23, caps, 10, 0) == 19);
   ASSERT(caps[0].len == 14);
