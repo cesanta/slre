@@ -1,7 +1,7 @@
 SLRE: Super Light Regular Expression library
 ============================================
 
-Documentation and API reference are at
+Documentation and API reference are in
 [docs](docs/)
 
 # Contributions
