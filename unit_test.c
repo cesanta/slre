@@ -146,6 +146,26 @@ int main(void) {
   ASSERT(slre_match("^(te)", "tenacity subdues all", 20, caps, 10, 0) == 2);
   ASSERT(slre_match("(bc)", "abcdef", 6, caps, 10, 0) == 3);
   ASSERT(slre_match(".(d.)", "abcdef", 6, caps, 10, 0) == 5);
+
+  /* Zero-length capture: group matches but captures nothing */
+  ASSERT(slre_match("([0-9]*)", "abc", 3, caps, 10, 0) == 0);
+  ASSERT(caps[0].ptr == NULL);
+  ASSERT(caps[0].len == 0);
+  const char* s = "1 abc";
+  ASSERT(slre_match("([0-9]*) ([0-9]*)", s, 5, caps, 10, 0) == 2);
+  ASSERT(caps[0].ptr == (void*)s);
+  ASSERT(caps[0].len == 1);
+  ASSERT(slre_match("\"([0-9]*)\"", "\"\"", 2, caps, 10, 0) == 2);
+  ASSERT(caps[0].ptr == NULL);
+  ASSERT(caps[0].len == 0);
+  s = "\"\" \"1\"";
+  ASSERT(slre_match("\"([0-9]*)\" \"([0-9]*)\"", s, 6, caps, 10, 0) == 6);
+  ASSERT(caps[0].ptr == NULL);
+  ASSERT(caps[0].len == 0);
+  ASSERT(caps[1].len == 1);
+  ASSERT(caps[1].ptr == (void*)(s + 4));
+  ASSERT(memcmp(caps[1].ptr, "1", 1) == 0);
+
   ASSERT(slre_match(".(d.)\\)?", "abcdef", 6, caps, 10, 0) == 5);
   ASSERT(caps[0].len == 2);
   ASSERT(memcmp(caps[0].ptr, "de", 2) == 0);
