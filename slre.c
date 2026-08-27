@@ -254,6 +254,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     }
 
     if (re[i] == '[') {
+      FAIL_IF(j >= s_len, SLRE_NO_MATCH);
       n = match_set(re + i + 1, re_len - (i + 2), s + j, info);
       DBG(("SET %.*s [%.*s] -> %d\n", step, re + i, s_len - j, s + j, n));
       FAIL_IF(n <= 0, SLRE_NO_MATCH);
