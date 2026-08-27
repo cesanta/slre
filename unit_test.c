@@ -278,6 +278,16 @@ int main(void) {
     ASSERT(caps[2].ptr[0] == 'z');
   }
 
+  {
+    /* Valid null-terminating test */
+    static const char * str = ";hello\0\0";
+    static const char * regex = "([^;])";
+    struct slre_cap caps[1];
+    ASSERT(slre_match(regex, str, strlen(str), caps, 1, 0) > 0);
+    printf("%s %d\n", caps[0].ptr, caps[0].len);
+    ASSERT(caps[0].len == 5);
+  }
+
   printf("Unit test %s (total test: %d, failed tests: %d)\n",
          static_failed_tests > 0 ? "FAILED" : "PASSED",
          static_total_tests, static_failed_tests);
